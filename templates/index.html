@@ -13,19 +13,25 @@
     />
   </head>
   <body class="d-flex flex-column min-vh-100">
-    <div
-      class="container d-flex flex-column flex-grow-1 align-items-center text-center"
-    >
-      <h1><span id="timer">$timer</span> / <span id="target">$target</span></h1>
-      <p>+/-</p>
+    <div class="container d-flex flex-column flex-grow-1 align-items-center text-center">
+      <div class="mt-4 mb-2 d-flex align-items-center gap-2">
+        <label for="dateInput" class="form-label mb-0">Date</label>
+        <input id="dateInput" type="date" class="form-control" />
+      </div>
+
+      <h1><span id="workedMetric">0:00:00</span> / <span id="targetMetric">8:00:00</span></h1>
+      <p id="deltaMetric">+0:00:00</p>
+
       <table class="table w-auto mx-auto">
         <tr>
+          <th>id</th>
           <th>type</th>
           <th>time</th>
           <th>action</th>
         </tr>
-        $current_rows
+        <tbody id="todayRows"></tbody>
       </table>
+
       <h2>History</h2>
       <table class="table w-auto mx-auto">
         <tr>
@@ -33,16 +39,147 @@
           <th>Time</th>
           <th>+/-</th>
         </tr>
-        $history_rows
+        <tbody id="historyRows"></tbody>
       </table>
+
       <div class="d-flex gap-2 justify-content-center mt-auto py-4">
-        <button id="btn_checkin" type="button" class="btn btn-primary btn-lg">
-          Check In
-        </button>
-        <button id="btn_break" type="button" class="btn btn-primary btn-lg">
-          Break
-        </button>
+        <button id="btnCheckIn" type="button" class="btn btn-primary btn-lg">Check In</button>
+        <button id="btnCheckOut" type="button" class="btn btn-outline-primary btn-lg">Check Out</button>
       </div>
     </div>
+
+    <script>
+      const state = {
+        date: new Date().toISOString().slice(0, 10),
+        entries: [],
+      };
+
+      const dateInput = document.getElementById("dateInput");
+      const workedMetric = document.getElementById("workedMetric");
+      const targetMetric = document.getElementById("targetMetric");
+      const deltaMetric = document.getElementById("deltaMetric");
+      const todayRows = document.getElementById("todayRows");
+      const historyRows = document.getElementById("historyRows");
+
+      dateInput.value = state.date;
+
+      async function api(path, options = {}) {
+        const response = await fetch(path, {
+          headers: { "Content-Type": "application/json" },
+          ...options,
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `Request failed: ${response.status}`);
+        }
+
+        if (response.status === 204) {
+          return null;
+        }
+
+        return response.json();
+      }
+
+      function formatTimestamp(iso) {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) {
+          return iso;
+        }
+        return d.toLocaleString();
+      }
+
+      function renderEntries() {
+        if (!state.entries.length) {
+          todayRows.innerHTML = '<tr><td colspan="4">No entries yet</td></tr>';
+          return;
+        }
+
+        todayRows.innerHTML = state.entries
+          .map((entry) => {
+            return `
+              <tr>
+                <td>${entry.id}</td>
+                <td>${entry.type}</td>
+                <td>${formatTimestamp(entry.timestamp)}</td>
+                <td>
+                  <button class="btn btn-secondary btn-sm" data-delete-id="${entry.id}">Delete</button>
+                </td>
+              </tr>
+            `;
+          })
+          .join("");
+      }
+
+      function renderHistory(history) {
+        if (!history.length) {
+          historyRows.innerHTML = '<tr><td colspan="3">No history</td></tr>';
+          return;
+        }
+
+        historyRows.innerHTML = history
+          .map((row) => {
+            return `
+              <tr>
+                <td>${row.date}</td>
+                <td>${row.worked}</td>
+                <td>${row.delta}</td>
+              </tr>
+            `;
+          })
+          .join("");
+      }
+
+      function renderSummary(summary) {
+        workedMetric.textContent = summary.worked;
+        targetMetric.textContent = summary.target;
+        deltaMetric.textContent = summary.delta;
+      }
+
+      async function loadAll() {
+        const [entriesPayload, summaryPayload, historyPayload] = await Promise.all([
+          api(`/api/entries?date=${encodeURIComponent(state.date)}`),
+          api(`/api/summary?date=${encodeURIComponent(state.date)}`),
+          api("/api/history?limit=14"),
+        ]);
+
+        state.entries = entriesPayload.entries;
+        renderEntries();
+        renderSummary(summaryPayload);
+        renderHistory(historyPayload.history);
+      }
+
+      async function createEntry(type) {
+        await api("/api/entries", {
+          method: "POST",
+          body: JSON.stringify({ type, date: state.date }),
+        });
+        await loadAll();
+      }
+
+      document.getElementById("btnCheckIn").addEventListener("click", () => createEntry("start"));
+      document.getElementById("btnCheckOut").addEventListener("click", () => createEntry("stop"));
+
+      dateInput.addEventListener("change", async (event) => {
+        state.date = event.target.value;
+        await loadAll();
+      });
+
+      todayRows.addEventListener("click", async (event) => {
+        const button = event.target.closest("button[data-delete-id]");
+        if (!button) {
+          return;
+        }
+
+        const entryId = button.getAttribute("data-delete-id");
+        await api(`/api/entries/${entryId}`, { method: "DELETE" });
+        await loadAll();
+      });
+
+      loadAll().catch((error) => {
+        console.error(error);
+        alert(`Failed to load: ${error.message}`);
+      });
+    </script>
   </body>
 </html>
