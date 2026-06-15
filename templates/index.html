@@ -13,31 +13,35 @@
     />
   </head>
   <body class="d-flex flex-column min-vh-100">
-    <div class="container d-flex flex-column flex-grow-1 align-items-center text-center">
-      <h1>
-        <span id="timer">$timer</span> / <span id="target">$target</span>
-      </h1>
+    <div
+      class="container d-flex flex-column flex-grow-1 align-items-center text-center"
+    >
+      <h1><span id="timer">$timer</span> / <span id="target">$target</span></h1>
       <p>+/-</p>
       <table class="table w-auto mx-auto">
         <tr>
-            <th>type</th>
-            <th>time</th>
-            <th>action</th>
+          <th>type</th>
+          <th>time</th>
+          <th>action</th>
         </tr>
         $current_rows
       </table>
       <h2>History</h2>
       <table class="table w-auto mx-auto">
         <tr>
-            <th>Date</th>
-            <th>Time</th>
-            <th>+/-</th>
+          <th>Date</th>
+          <th>Time</th>
+          <th>+/-</th>
         </tr>
         $history_rows
       </table>
       <div class="d-flex gap-2 justify-content-center mt-auto py-4">
-        <button id="btn_checkin" type="button" class="btn btn-primary btn-lg">Check In</button>
-        <button id="btn_break" type="button" class="btn btn-primary btn-lg">Break</button>
+        <button id="btn_checkin" type="button" class="btn btn-primary btn-lg">
+          Check In
+        </button>
+        <button id="btn_break" type="button" class="btn btn-primary btn-lg">
+          Break
+        </button>
       </div>
     </div>
   </body>

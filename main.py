@@ -2,9 +2,14 @@ import os
 import cherrypy
 from string import Template
 from uuid import uuid4
-
+from src.TimeIt import TimeIt as TimeItData
 
 class TimeIt(object):
+
+    def __init__(self):
+        self.data = TimeItData()
+        self.data.load_data()
+    
     @cherrypy.expose
     def index(self):
         current_rows = [
