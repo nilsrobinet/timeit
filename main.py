@@ -4,10 +4,12 @@ import json
 import cherrypy
 from src.TimeIt import TimeIt as TimeItData, EntryType
 
+APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+
 class TimeIt(object):
 
     def __init__(self):
-        self.data = TimeItData()
+        self.data = TimeItData(os.path.join(APP_ROOT, "data.json"))
         self.data.load_data()
     
     @cherrypy.expose
@@ -19,6 +21,7 @@ class TimeIt(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def api(self, *vpath, **params):
+        self.data.reload_if_changed()
         method = cherrypy.request.method.upper()
 
         if not vpath:
@@ -211,4 +214,23 @@ class TimeIt(object):
     
     
 if __name__ == "__main__":
-    cherrypy.quickstart(TimeIt(), "", "config/app.conf")
+    cherrypy.config.update({
+        "server.socket_host": "0.0.0.0",
+        "server.socket_port": 8080,
+    })
+
+    app_config = {
+        "/": {
+            "tools.sessions.on": True,
+            "tools.sessions.timeout": 60,
+            "tools.sessions.secure": True,
+            "tools.sessions.httponly": True,
+        },
+        "/static": {
+            "tools.staticdir.on": True,
+            "tools.staticdir.root": APP_ROOT,
+            "tools.staticdir.dir": "static",
+        },
+    }
+
+    cherrypy.quickstart(TimeIt(), "", app_config)

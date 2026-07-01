@@ -3,6 +3,8 @@ import enum
 import json
 import os
 
+UTC = datetime.UTC
+
 class EntryType(enum.Enum):
     START = "start"
     STOP = "stop"
@@ -10,28 +12,52 @@ class EntryType(enum.Enum):
 
 class TimeIt:
 
-    def __init__(self):
+    def __init__(self, data_path="data.json"):
+        self.data_path = data_path
         self.data: dict[str, list[dict]] = {}
         self.current_entry_id = 0
+        self.last_loaded_mtime_ns = None
 
     def load_data(self):
-        if not os.path.exists("data.json"):
+        if not os.path.exists(self.data_path):
             self.data = {}
             self.current_entry_id = 0
+            self.last_loaded_mtime_ns = None
             return
-        with open("data.json", "r", encoding="utf-8") as f:
+        with open(self.data_path, "r", encoding="utf-8") as f:
             self.data = json.load(f)
         self.current_entry_id = self._next_entry_id()
+        self.last_loaded_mtime_ns = os.stat(self.data_path).st_mtime_ns
+
+    def reload_if_changed(self):
+        if not os.path.exists(self.data_path):
+            if self.last_loaded_mtime_ns is not None or self.data:
+                self.data = {}
+                self.current_entry_id = 0
+                self.last_loaded_mtime_ns = None
+            return False
+
+        current_mtime_ns = os.stat(self.data_path).st_mtime_ns
+        if self.last_loaded_mtime_ns == current_mtime_ns:
+            return False
+
+        self.load_data()
+        return True
     
     def save_data(self):
-        with open("data.json", "w", encoding="utf-8") as f:
+        with open(self.data_path, "w", encoding="utf-8") as f:
             json.dump(self.data, f, indent=4)
+        self.last_loaded_mtime_ns = os.stat(self.data_path).st_mtime_ns
 
     def add_entry(self, entry_type=EntryType.AGNOSTIC):
         today = datetime.date.today().isoformat()
         if today not in self.data:
             self.data[today] = []
-        self.data[today].append({"type": entry_type.value, "timestamp": datetime.datetime.now().isoformat(), "id": self.current_entry_id})
+        self.data[today].append({
+            "type": entry_type.value,
+            "timestamp": datetime.datetime.now(UTC).isoformat(),
+            "id": self.current_entry_id,
+        })
         self.current_entry_id += 1
 
     def add_entry_at(self, date, entry_type=EntryType.AGNOSTIC, timestamp=None):
@@ -39,7 +65,7 @@ class TimeIt:
             self.data[date] = []
         entry = {
             "type": entry_type.value,
-            "timestamp": (timestamp or datetime.datetime.now()).isoformat(),
+            "timestamp": self._as_utc(timestamp or datetime.datetime.now(UTC)).isoformat(),
             "id": self.current_entry_id,
         }
         self.data[date].append(entry)
@@ -53,7 +79,7 @@ class TimeIt:
                     if new_type is not None:
                         entry["type"] = new_type.value
                     if new_timestamp is not None:
-                        entry["timestamp"] = new_timestamp.isoformat()
+                        entry["timestamp"] = self._as_utc(new_timestamp).isoformat()
                     if new_date is not None and new_date != date:
                         if new_date not in self.data:
                             self.data[new_date] = []
@@ -90,6 +116,11 @@ class TimeIt:
             for entry in entries:
                 max_id = max(max_id, int(entry.get("id", -1)))
         return max_id + 1
+
+    def _as_utc(self, value):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
 if __name__ == "__main__":
     timeit = TimeIt()

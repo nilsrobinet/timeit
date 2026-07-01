@@ -13,13 +13,18 @@
     />
   </head>
   <body class="d-flex flex-column min-vh-100">
-    <div class="container d-flex flex-column flex-grow-1 align-items-center text-center">
+    <div
+      class="container d-flex flex-column flex-grow-1 align-items-center text-center"
+    >
       <div class="mt-4 mb-2 d-flex align-items-center gap-2">
         <label for="dateInput" class="form-label mb-0">Date</label>
         <input id="dateInput" type="date" class="form-control" />
       </div>
 
-      <h1><span id="workedMetric">0:00:00</span> / <span id="targetMetric">8:00:00</span></h1>
+      <h1>
+        <span id="workedMetric">0:00:00</span> /
+        <span id="targetMetric">8:00:00</span>
+      </h1>
       <p id="deltaMetric">+0:00:00</p>
 
       <table class="table w-auto mx-auto">
@@ -43,15 +48,28 @@
       </table>
 
       <div class="d-flex gap-2 justify-content-center mt-auto py-4">
-        <button id="btnCheckIn" type="button" class="btn btn-primary btn-lg">Check In</button>
-        <button id="btnCheckOut" type="button" class="btn btn-outline-primary btn-lg">Check Out</button>
+        <button
+          id="btnToggleEntry"
+          type="button"
+          class="btn btn-primary btn-lg"
+        >
+          Check In
+        </button>
       </div>
     </div>
 
     <script>
+      function getLocalDateString(date = new Date()) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+
       const state = {
-        date: new Date().toISOString().slice(0, 10),
+        date: getLocalDateString(),
         entries: [],
+        nextEntryType: "start",
       };
 
       const dateInput = document.getElementById("dateInput");
@@ -60,12 +78,14 @@
       const deltaMetric = document.getElementById("deltaMetric");
       const todayRows = document.getElementById("todayRows");
       const historyRows = document.getElementById("historyRows");
+      const btnToggleEntry = document.getElementById("btnToggleEntry");
 
       dateInput.value = state.date;
 
       async function api(path, options = {}) {
         const response = await fetch(path, {
           headers: { "Content-Type": "application/json" },
+          cache: "no-store",
           ...options,
         });
 
@@ -86,7 +106,10 @@
         if (Number.isNaN(d.getTime())) {
           return iso;
         }
-        return d.toLocaleString();
+        return d.toLocaleString(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        });
       }
 
       function renderEntries() {
@@ -134,14 +157,24 @@
         workedMetric.textContent = summary.worked;
         targetMetric.textContent = summary.target;
         deltaMetric.textContent = summary.delta;
+
+        const lastEntryType = summary.last_entry?.type;
+        state.nextEntryType = lastEntryType === "start" ? "stop" : "start";
+        btnToggleEntry.textContent =
+          state.nextEntryType === "start" ? "Check In" : "Check Out";
+        btnToggleEntry.className =
+          state.nextEntryType === "start"
+            ? "btn btn-primary btn-lg"
+            : "btn btn-outline-primary btn-lg";
       }
 
       async function loadAll() {
-        const [entriesPayload, summaryPayload, historyPayload] = await Promise.all([
-          api(`/api/entries?date=${encodeURIComponent(state.date)}`),
-          api(`/api/summary?date=${encodeURIComponent(state.date)}`),
-          api("/api/history?limit=14"),
-        ]);
+        const [entriesPayload, summaryPayload, historyPayload] =
+          await Promise.all([
+            api(`/api/entries?date=${encodeURIComponent(state.date)}`),
+            api(`/api/summary?date=${encodeURIComponent(state.date)}`),
+            api("/api/history?limit=14"),
+          ]);
 
         state.entries = entriesPayload.entries;
         renderEntries();
@@ -157,8 +190,9 @@
         await loadAll();
       }
 
-      document.getElementById("btnCheckIn").addEventListener("click", () => createEntry("start"));
-      document.getElementById("btnCheckOut").addEventListener("click", () => createEntry("stop"));
+      btnToggleEntry.addEventListener("click", () =>
+        createEntry(state.nextEntryType),
+      );
 
       dateInput.addEventListener("change", async (event) => {
         state.date = event.target.value;
