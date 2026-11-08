@@ -13,12 +13,6 @@ class TimeIt(object):
         self.data.load_data()
     
     @cherrypy.expose
-    def index(self):
-        template_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
-        with open(template_path, encoding="utf-8") as template_file:
-            return template_file.read()
-
-    @cherrypy.expose
     @cherrypy.tools.json_out()
     def api(self, *vpath, **params):
         self.data.reload_if_changed()
@@ -217,6 +211,7 @@ if __name__ == "__main__":
     cherrypy.config.update({
         "server.socket_host": "0.0.0.0",
         "server.socket_port": 8080,
+        "tools.staticdir.root": APP_ROOT,
     })
 
     app_config = {
@@ -225,11 +220,16 @@ if __name__ == "__main__":
             "tools.sessions.timeout": 60,
             "tools.sessions.secure": False,
             "tools.sessions.httponly": True,
+            "tools.staticdir.on": True,
+            "tools.staticdir.dir": "static/app",
+            "tools.staticdir.index": "index.html",
+            "tools.staticdir.match": r"^/$",
         },
         "/static": {
             "tools.staticdir.on": True,
-            "tools.staticdir.root": APP_ROOT,
-            "tools.staticdir.dir": "static",
+            "tools.staticdir.dir": "static/",
+            "tools.staticdir.match": r"^/static(?:/|$)",
+            "tools.staticdir.index": "index.html"
         },
     }
 
