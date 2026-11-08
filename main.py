@@ -223,7 +223,7 @@ if __name__ == "__main__":
         "/": {
             "tools.sessions.on": True,
             "tools.sessions.timeout": 60,
-            "tools.sessions.secure": True,
+            "tools.sessions.secure": False,
             "tools.sessions.httponly": True,
         },
         "/static": {
