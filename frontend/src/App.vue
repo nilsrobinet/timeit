@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { FDuration, FDate, formatToday } from './js/time'
 import { ApiInteractor } from './js/ApiInteractor'
 import CurrentTimer from './components/StatsOverview.vue'
-import DayEntryList from './components/DayEntryList.vue'
+import DayEntryList from './components/EntryList.vue'
 
 let currentDateStr = formatToday()
 
