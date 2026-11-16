@@ -6,7 +6,7 @@ import StatsOverview from './components/StatsOverview.vue'
 import DayEntryList from './components/EntryList.vue'
 import EditForm from './components/EditForm.vue'
 
-let currentDateStr = formatToday()
+const currentDateStr = ref(formatToday())
 
 const api = new ApiInteractor()
 
@@ -20,7 +20,7 @@ const summary = ref({
 })
 const isStarted = ref(false)
 function refreshSummary() {
-  api.getSummary(currentDateStr).then(data => {
+  api.getSummary(currentDateStr.value).then(data => {
     summary.value = data
     isStarted.value = data.lastEntry?.type === 'start'
   })
@@ -29,7 +29,7 @@ refreshSummary()
 
 const thisDayEntries = ref([])
 function refreshEntries() {
-  api.getEntries(currentDateStr).then(data => {
+  api.getEntries(currentDateStr.value).then(data => {
     thisDayEntries.value = data
   })
 }
@@ -48,7 +48,7 @@ function editEntry(entry) {
 }
 function checkInOut() {
   let type = isStarted.value ? 'stop' : 'start'
-  api.addEntry(currentDateStr, type).then(() => {
+  api.addEntry(currentDateStr.value, type).then(() => {
     refreshSummary()
     refreshEntries()
   })
@@ -65,35 +65,28 @@ function saveEntry(entry) {
   })
 }
 
+function onDateChange() {
+  refreshSummary()
+  refreshEntries()
+}
+
+function getButtonText() {
+  if (currentDateStr.value != formatToday()) {
+    return 'Add Entry'
+  }
+  return isStarted.value ? 'Check Out' : 'Check In'
+}
+
 </script>
 
 <template>
   <main>
-    <StatsOverview :summary="summary" />
+    <input v-model="currentDateStr" type="date" @change="onDateChange" />
+    <StatsOverview :summary="summary" :do-live-update="currentDateStr == formatToday()" />
     <DayEntryList :entries="thisDayEntries" @delete="deleteEntry" @edit="editEntry" />
-    <button @click="checkInOut">{{ isStarted ? 'Check Out' : 'Check In' }}</button>
+    <button @click="checkInOut">{{ getButtonText() }}</button>
   </main>
 
-  <div v-if="showEditForm" class="form-backdrop edit-form-backdrop" @click.self="showEditForm = false">
-    <section class="form-dialog" role="dialog" aria-modal="true" aria-label="Edit Entry">
-      <EditForm :entry="editingEntry" @save="saveEntry" />
-    </section>
-  </div>
+  <EditForm v-if="showEditForm" :entry="editingEntry" @save="saveEntry" @cancel="showEditForm = false" />
 
 </template>
-
-<style>
-.form-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: grid;
-  place-items: center;
-  background: rgb(0 0 0 / 50%);
-}
-
-.form-dialog {
-  padding: 1.5rem;
-  background: white;
-}
-</style>

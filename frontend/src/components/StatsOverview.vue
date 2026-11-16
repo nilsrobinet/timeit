@@ -3,13 +3,14 @@ import { ref } from 'vue'
 import { FDuration, getDateDurationDelta } from '../js/time.js'
 
 const props = defineProps({
-    summary: Object
+    summary: Object,
+    doLiveUpdate: Boolean
 })
 
 const currentWorked = ref(new FDuration(props.summary.worked))
 
 function updateCurrentWorked(newWorked) {
-    if (props.summary.lastEntry?.type === 'start') {
+    if (props.summary.lastEntry?.type === 'start' && props.doLiveUpdate) {
         const deltaAdder = getDateDurationDelta(new Date(props.summary.lastEntry.date), new Date())
         currentWorked.value = props.summary.worked.delta(deltaAdder)
     } else {
@@ -18,8 +19,9 @@ function updateCurrentWorked(newWorked) {
 }
 setInterval(() => {
     updateCurrentWorked(props.summary.worked)
-}, 1000)
+}, 100)
 
+updateCurrentWorked(props.summary.worked)
 
 
 </script>
