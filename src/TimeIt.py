@@ -98,16 +98,19 @@ class TimeIt:
         if date not in self.data:
             return "0:00:00"
         entries = self.data[date]
+        entries = sorted(entries, key=lambda e: e["timestamp"])
         total_seconds = 0.0
         for i in range(0, len(entries) - 1, 2):
             start_time = datetime.datetime.fromisoformat(entries[i]["timestamp"])
             stop_time = datetime.datetime.fromisoformat(entries[i + 1]["timestamp"])
             total_seconds += (stop_time - start_time).total_seconds()
+            print(f"Adding time from {start_time} to {stop_time}, total_seconds now {total_seconds}")
         return str(datetime.timedelta(seconds=int(total_seconds)))
 
     def get_last_entry(self, date=datetime.date.today().isoformat()):
         if date not in self.data or not self.data[date]:
             return None
+        self.data[date] = sorted(self.data[date], key=lambda e: e["timestamp"])
         return self.data[date][-1]
 
     def _next_entry_id(self):

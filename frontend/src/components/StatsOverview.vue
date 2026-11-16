@@ -9,7 +9,7 @@ const props = defineProps({
 const currentWorked = ref(new FDuration(props.summary.worked))
 
 function updateCurrentWorked(newWorked) {
-    if (props.summary.lastEntry.type === 'start') {
+    if (props.summary.lastEntry?.type === 'start') {
         const deltaAdder = getDateDurationDelta(new Date(props.summary.lastEntry.date), new Date())
         currentWorked.value = props.summary.worked.delta(deltaAdder)
     } else {

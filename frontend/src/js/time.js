@@ -14,6 +14,16 @@ function formatToday() {
 }
 
 /**
+ * Format a given date as "YYYY-MM-DD".
+ * @param {Date} date 
+ * @returns {string} The formatted date string in the format "YYYY-MM-DD"
+ */
+function formatDate(date) {
+    const d = new Date(date).toISOString().split('T')[0]
+    return d
+}
+
+/**
  * 
  * @param {Date} date1 
  * @param {Date} date2 
@@ -106,4 +116,4 @@ class FDate {
     }
 }
 
-export { FDuration, FDate, formatToday, getDateDurationDelta }
+export { FDuration, FDate, formatToday, getDateDurationDelta, formatDate }

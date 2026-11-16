@@ -2,12 +2,13 @@
 import { ref } from 'vue'
 import { FDuration, FDate, formatToday } from './js/time'
 import { ApiInteractor } from './js/ApiInteractor'
-import CurrentTimer from './components/StatsOverview.vue'
+import StatsOverview from './components/StatsOverview.vue'
 import DayEntryList from './components/EntryList.vue'
+import EditForm from './components/EditForm.vue'
 
 let currentDateStr = formatToday()
 
-const api = new ApiInteractor('http://localhost:8080/api')
+const api = new ApiInteractor()
 
 const summary = ref({
   date: new FDate(new Date()),
@@ -40,8 +41,10 @@ function deleteEntry(id) {
     refreshSummary()
   })
 }
-function editEntry(id) {
-  console.log('Edit', id)
+function editEntry(entry) {
+  console.log('Editing entry:', entry)
+  showEditForm.value = true
+  editingEntry.value = entry
 }
 function checkInOut() {
   let type = isStarted.value ? 'stop' : 'start'
@@ -51,10 +54,46 @@ function checkInOut() {
   })
 }
 
+const showEditForm = ref(false)
+const editingEntry = ref(null)
+
+function saveEntry(entry) {
+  showEditForm.value = false
+  api.editEntry(entry).then(() => {
+    refreshEntries()
+    refreshSummary()
+  })
+}
+
 </script>
 
 <template>
-  <CurrentTimer :summary="summary" />
-  <DayEntryList :entries="thisDayEntries" @delete="deleteEntry" @edit="editEntry" />
-  <button @click="checkInOut">{{ isStarted ? 'Check Out' : 'Check In' }}</button>
+  <main>
+    <StatsOverview :summary="summary" />
+    <DayEntryList :entries="thisDayEntries" @delete="deleteEntry" @edit="editEntry" />
+    <button @click="checkInOut">{{ isStarted ? 'Check Out' : 'Check In' }}</button>
+  </main>
+
+  <div v-if="showEditForm" class="form-backdrop edit-form-backdrop" @click.self="showEditForm = false">
+    <section class="form-dialog" role="dialog" aria-modal="true" aria-label="Edit Entry">
+      <EditForm :entry="editingEntry" @save="saveEntry" />
+    </section>
+  </div>
+
 </template>
+
+<style>
+.form-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 50%);
+}
+
+.form-dialog {
+  padding: 1.5rem;
+  background: white;
+}
+</style>

@@ -74,8 +74,7 @@ class TimeIt(object):
 
         new_date = payload.get("date")
 
-        updated = self._entry_exists(entry_id)
-        if not updated:
+        if not self._entry_exists(entry_id):
             raise cherrypy.HTTPError(404, "Entry not found")
 
         self.data.edit_entry(

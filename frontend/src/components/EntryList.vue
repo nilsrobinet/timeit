@@ -23,7 +23,7 @@ const emit = defineEmits(['edit', 'delete'])
                 <td>{{ entry.type }}</td>
                 <td>{{ entry.getTime() }}</td>
                 <td>
-                    <button @click="() => emit('edit', entry.id)">Edit</button>
+                    <button @click="() => emit('edit', entry)">Edit</button>
                     <button @click="() => emit('delete', entry.id)">Delete</button>
                 </td>
             </tr>

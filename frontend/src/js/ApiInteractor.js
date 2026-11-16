@@ -1,9 +1,10 @@
-import {FDuration, FDate, formatToday} from './time'
+import {FDuration, FDate, formatToday, formatDate} from './time'
 import TimeKeepingEntry from './TimeKeepingEntry'
 
 class ApiInteractor {
-    constructor(baseUrl) {
-        this.baseUrl = baseUrl
+    buildUrl(path, params = {}) {
+        const query = new URLSearchParams(params).toString()
+        return `/api/${path}${query ? `?${query}` : ''}`
     }
 
     /**
@@ -11,7 +12,7 @@ class ApiInteractor {
      * @returns {Object} An object containing the summary for the current day, including date, worked, target, day, weekly, and total durations
      */
     async getSummary(date = formatToday()) {
-        const summary = await fetch(`${this.baseUrl}/summary?date=${date}`)
+         const summary = await fetch(this.buildUrl('summary', { date }))
             .then(response => response.json())
         const dateObj = new FDate(summary.date)
         const worked = new FDuration(summary.worked)
@@ -32,11 +33,12 @@ class ApiInteractor {
     /**
      * Get all entries for a specific day from the backend API
      * @param {String} date - The date in YYYY-MM-DD format
+     * @returns {TimeKeepingEntry[]} An array of TimeKeepingEntry objects for the specified date
      */
     async getEntries(date = formatToday()) {
-        const entries = await fetch(`${this.baseUrl}/entries?date=${date}`)
+         const entries = await fetch(this.buildUrl('entries', { date }))
             .then(response => response.json()).then(data => data.entries)
-        return entries.map(entry => new TimeKeepingEntry(entry))
+        return entries.map(entry => new TimeKeepingEntry(entry)).sort((a, b) => a.date - b.date)
     }
 
     /**
@@ -44,7 +46,7 @@ class ApiInteractor {
      * @param {Number} id 
      */
     async deleteEntry(id) {
-        await fetch(`${this.baseUrl}/entries/${id}`, {
+         await fetch(this.buildUrl(`entries/${encodeURIComponent(id)}`), {
             method: 'DELETE'
         })
     }
@@ -54,12 +56,27 @@ class ApiInteractor {
      * @param {TimeKeepingEntry} entry 
      */
     async addEntry(date, start) {
-        await fetch(`${this.baseUrl}/entries`, {
+         await fetch(this.buildUrl('entries'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ 'date': date, 'type': start })
+        })
+    }
+
+    /**
+     * Edit an existing entry in the backend API
+     * @param {TimeKeepingEntry} entry 
+     */
+    async editEntry(entry) {
+        console.log('Editing entry:', entry)
+        await fetch(this.buildUrl(`entries/${encodeURIComponent(entry.id)}`), {
+           method: 'PATCH',
+           headers: {
+               'Content-Type': 'application/json'
+           },
+           body: JSON.stringify({ 'timestamp': entry.date, 'type': entry.type, date: formatDate(entry.date) })
         })
     }
 }
