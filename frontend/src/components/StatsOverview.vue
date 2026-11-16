@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { onUnmounted, ref } from 'vue'
 import { FDuration, getDateDurationDelta } from '../js/time.js'
 
 const props = defineProps({
@@ -17,9 +17,11 @@ function updateCurrentWorked(newWorked) {
         currentWorked.value = props.summary.worked
     }
 }
-setInterval(() => {
+const intervalId = setInterval(() => {
     updateCurrentWorked(props.summary.worked)
 }, 100)
+
+onUnmounted(() => clearInterval(intervalId))
 
 updateCurrentWorked(props.summary.worked)
 
