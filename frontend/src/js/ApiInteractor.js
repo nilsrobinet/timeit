@@ -25,7 +25,7 @@ class ApiInteractor {
             summary.total_delta = '+0:00:00'
         }
         const total = new FDuration(summary.total_delta)
-        const day = target.delta(worked)
+        const day = worked.delta(target)
         const lastEntry = summary.last_entry ? new TimeKeepingEntry(summary.last_entry) : null
         return { dateObj, worked, target, day, weekly, total, lastEntry }
     }
@@ -70,7 +70,6 @@ class ApiInteractor {
      * @param {TimeKeepingEntry} entry 
      */
     async editEntry(entry) {
-        console.log('Editing entry:', entry)
         await fetch(this.buildUrl(`entries/${encodeURIComponent(entry.id)}`), {
            method: 'PATCH',
            headers: {

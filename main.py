@@ -3,6 +3,7 @@ import datetime
 import json
 import cherrypy
 from src.TimeIt import TimeIt as TimeItData, EntryType
+from src.TimeUtil import get_week_start
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -104,12 +105,16 @@ class TimeIt(object):
         date = params.get("date") or datetime.date.today().isoformat()
         worked = self.data.get_time_worked(date)
         target = "8:00:00"
+        print(f"Worked: {worked}, Target: {target}")
         delta = self._duration_delta(worked, target)
+        print(f"Delta: {delta}")
         return {
             "date": date,
             "worked": worked,
             "target": target,
             "delta": delta,
+            "weekly_delta": self.data.get_worked_delta_range(get_week_start(date), date, target),
+            "total_delta": self.data.get_worked_delta_range(self.data.get_first_date() or date, date, target),
             "last_entry": self.data.get_last_entry(date),
         }
 

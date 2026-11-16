@@ -94,17 +94,67 @@ class TimeIt:
                     del entries[i]
                     return
 
-    def get_time_worked(self, date=datetime.date.today().isoformat()):
-        if date not in self.data:
-            return "0:00:00"
-        entries = self.data[date]
+    def get_first_date(self):
+        if not self.data:
+            return None
+        return min(self.data.keys())
+
+    def get_worked_delta_range(self, start_date, end_date, daily_target):
+        print(f"Calculating worked delta from {start_date} to {end_date} with daily target {daily_target}")
+        target_h, target_m , target_s = map(int, daily_target.split(":"))
+        total_target_s = (target_h * 3600 + target_m * 60 + target_s) * self.get_number_of_dates_in_range(start_date, end_date)
+        total_worked_s = self.get_time_worked_range_seconds(start_date, end_date)
+        delta_seconds = total_worked_s - total_target_s
+        sign = "-" if delta_seconds < 0 else ""
+        hours, remainder = divmod(abs(delta_seconds), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        delta = f"{sign}{hours}:{minutes:02}:{seconds:02}"
+
+        print(f"delta: {delta} with days worked: {self.get_number_of_dates_in_range(start_date, end_date)} ({total_worked_s} seconds worked {total_target_s} seconds target)")
+        return delta
+
+    def get_time_worked_range_seconds(self, start_date, end_date):
+        total_seconds = 0.0
+        if not isinstance(start_date, datetime.date):
+            start_date = datetime.date.fromisoformat(start_date)
+        current_date = start_date
+        while current_date <= datetime.date.fromisoformat(end_date):
+            total_seconds += self._get_time_worked_for_date(current_date)
+            current_date += datetime.timedelta(days=1)
+        return int(total_seconds)
+
+    def get_number_of_dates_in_range(self, start_date, end_date):
+        if not isinstance(start_date, datetime.date):
+            start_date = datetime.date.fromisoformat(start_date)
+        if not isinstance(end_date, datetime.date):
+            end_date = datetime.date.fromisoformat(end_date)
+        count = 0
+        current_date = start_date
+        while current_date <= end_date:
+            if current_date.isoformat() in self.data:
+                count += 1
+            current_date += datetime.timedelta(days=1)
+        return count
+
+    def get_time_worked_range(self, start_date, end_date):
+        total_seconds = self.get_time_worked_range_seconds(start_date, end_date)
+        return str(datetime.timedelta(seconds=int(total_seconds)))
+
+    def _get_time_worked_for_date(self, date):
+        date_str = date.isoformat() if isinstance(date, datetime.date) else date
+        if date_str not in self.data:
+            return 0.0
+        entries = self.data[date_str]
         entries = sorted(entries, key=lambda e: e["timestamp"])
         total_seconds = 0.0
         for i in range(0, len(entries) - 1, 2):
             start_time = datetime.datetime.fromisoformat(entries[i]["timestamp"])
             stop_time = datetime.datetime.fromisoformat(entries[i + 1]["timestamp"])
             total_seconds += (stop_time - start_time).total_seconds()
-            print(f"Adding time from {start_time} to {stop_time}, total_seconds now {total_seconds}")
+        return total_seconds
+    
+    def get_time_worked(self, date=datetime.date.today().isoformat()):
+        total_seconds = self._get_time_worked_for_date(date)
         return str(datetime.timedelta(seconds=int(total_seconds)))
 
     def get_last_entry(self, date=datetime.date.today().isoformat()):

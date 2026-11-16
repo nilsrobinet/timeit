@@ -23,7 +23,6 @@ setInterval(() => {
 
 updateCurrentWorked(props.summary.worked)
 
-
 </script>
 
 <template>
