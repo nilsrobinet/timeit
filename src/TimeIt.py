@@ -125,11 +125,39 @@ class TimeIt:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
 
+    def check_consistency(self):
+        suspicious_entries = []
+        for date, entries in self.data.items():
+            entries = sorted(entries, key=lambda e: e["timestamp"])
+            if not entries:
+                suspicious_entries.append((date, entries, 'No entries for this date'))
+                continue
+            for i in range(0, len(entries) - 1, 2):
+                start_time = datetime.datetime.fromisoformat(entries[i]["timestamp"])
+                stop_time = datetime.datetime.fromisoformat(entries[i + 1]["timestamp"])
+                if stop_time < start_time:
+                    suspicious_entries.append((date, entries, f'Stop time {stop_time} is before start time {start_time}'))
+            if len(entries) == 1:
+                suspicious_entries.append((date, entries, 'Only one entry for this date'))
+            if entries[-1]['type'] == 'start':
+                suspicious_entries.append((date, entries, 'Last entry is a start entry without a corresponding stop'))
+        return suspicious_entries
+
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="TimeIt CLI")
+    parser.add_argument("--check", action="store_true", help="Check the consistency of the time entries and generate a report for suspicious entries")
+    args = parser.parse_args()
     timeit = TimeIt()
     timeit.load_data()
-    timeit.add_entry(EntryType.START)
-    timeit.add_entry(EntryType.STOP)
-    print(timeit.get_time_worked())
-    print(timeit.get_last_entry())
-    timeit.save_data()
+    if args.check:
+        suspicious_entries = timeit.check_consistency()
+        if suspicious_entries:
+            print("Suspicious entries found:")
+            for date, entries, reason in suspicious_entries:
+                print(f"Date: {date}, Reason: {reason}")
+                for entry in entries:
+                    print(f"  {entry}")
+        else:
+            print("No suspicious entries found.")
