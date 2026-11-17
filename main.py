@@ -120,12 +120,21 @@ class TimeIt(object):
 
     def _history_get(self, params):
         raw_limit = params.get("limit", "14")
+        last = params.get("last", None)
         try:
             limit = max(1, int(raw_limit))
         except ValueError:
             raise cherrypy.HTTPError(400, "limit must be an integer")
 
-        dates = sorted(self.data.data.keys(), reverse=True)[:limit]
+        dates = sorted(self.data.data.keys(), reverse=True)
+        if last is not None:
+            try:
+                last_index = dates.index(str(last))
+                dates = dates[:last_index]
+            except ValueError:
+                pass
+        dates = dates[:limit]
+
         history = []
         for date in dates:
             worked = self.data.get_time_worked(date)
@@ -135,7 +144,7 @@ class TimeIt(object):
                 "worked": worked,
                 "delta": self._duration_delta(worked, target),
             })
-        return {"history": history}
+        return {"history": history, "full_length": len(self.data.data)}
 
     def _read_json_body(self, required=False):
         raw_body = cherrypy.request.body.read()

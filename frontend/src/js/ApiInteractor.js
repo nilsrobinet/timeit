@@ -78,6 +78,12 @@ class ApiInteractor {
            body: JSON.stringify({ 'timestamp': entry.date, 'type': entry.type, date: formatDate(entry.date) })
         })
     }
+
+    async getHistory(last, limit = 10) {
+         const history = await fetch(this.buildUrl('history', { last, limit }))
+            .then(response => response.json()).then(data => ({ history: data.history, fullLength: data.full_length }))
+        return {history: history.history, fullLength: history.fullLength}
+    }
 }
 
 export { ApiInteractor }
