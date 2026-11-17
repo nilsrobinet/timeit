@@ -1,27 +1,39 @@
+"""Main app for TimeIt. Contains the API."""
+
 import os
 import datetime
 import json
+from typing import Any
+
 import cherrypy
-from src.TimeIt import TimeIt as TimeItData, EntryType
-from src.Attendance import Attendance
-from src.TimeUtil import get_week_start
-from src.ConfigHandler import ConfigHandler
+from src.time_keeper import TimeKeeper
+from src.attendance import Attendance
+from src.time_util import get_week_start, duration_delta, parse_iso_datetime
+from src.config_handler import ConfigHandler
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+
 class TimeIt(object):
+    """TimeIt cherrypy web app."""
 
     def __init__(self):
         self.config = ConfigHandler(os.path.join(APP_ROOT, "config/userconf.toml"))
         self.config.load()
-        self.data = TimeItData(os.path.join(APP_ROOT, self.config.get_timekeeping_path()))
-        self.data.load_data()
+        self.time_keeper = TimeKeeper(os.path.join(APP_ROOT, self.config.get_timekeeping_path()))
+        self.time_keeper.load_data()
         self.attendance = Attendance(os.path.join(APP_ROOT, self.config.get_attendance_path()))
         self.attendance.load_attendance()
-    
+
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def api(self, *vpath, **params):
-        self.data.reload_if_changed()
+    def api(self, *vpath, **params) -> dict[str, Any] | None:
+        """Handle API requests.
+        :param vpath: API resource path components.
+        :param params: Query parameters for the request.
+        :returns: The API response payload.
+        """
+        self.time_keeper.reload_if_changed()
         self.attendance.reload_if_changed()
         method = cherrypy.request.method.upper()
 
@@ -29,108 +41,109 @@ class TimeIt(object):
             raise cherrypy.HTTPError(404, "Missing API resource")
 
         resource = vpath[0]
+        handled = True
+        response = None
         if resource == "entries":
             if method == "GET" and len(vpath) == 1:
-                return self._entries_get(params)
-            if method == "POST" and len(vpath) == 1:
+                response = self._entries_get(params)
+            elif method == "POST" and len(vpath) == 1:
                 payload = self._read_json_body(required=True)
-                return self._entries_post(payload)
-            if method == "PATCH" and len(vpath) == 2:
+                response = self._entries_post(payload)
+            elif method == "PATCH" and len(vpath) == 2:
                 payload = self._read_json_body(required=True)
-                return self._entries_patch(vpath[1], payload)
-            if method == "DELETE" and len(vpath) == 2:
-                return self._entries_delete(vpath[1])
+                response = self._entries_patch(vpath[1], payload)
+            elif method == "DELETE" and len(vpath) == 2:
+                self._entries_delete(vpath[1])
+            else:
+                handled = False
+        elif resource == "summary" and method == "GET":
+            response = self._summary_get(params)
+        elif resource == "history" and method == "GET":
+            response = self._history_get(params)
+        elif resource == "config" and method == "GET":
+            response = self.config.get_config()
+        elif resource == "attendance" and method == "GET":
+            response = self._attendance_get()
+        elif resource == "attendance" and method == "POST":
+            response = self._attendance_post(params)
+        else:
+            handled = False
 
-        if resource == "summary" and method == "GET":
-            return self._summary_get(params)
-
-        if resource == "history" and method == "GET":
-            return self._history_get(params)
-
-        if resource == "config" and method == "GET":
-            return self.config.get_config()
-
-        if resource == "attendance":
-            if method == "GET":
-                return self._attendance_get(params)
-            if method == "POST":
-                return self._attendance_post(params)
-
-        raise cherrypy.HTTPError(404, "Unknown API route")
+        if not handled:
+            raise cherrypy.HTTPError(404, "Unknown API route")
+        return response
 
     def _entries_get(self, params):
         date = params.get("date") or datetime.date.today().isoformat()
-        entries = list(self.data.data.get(date, []))
+        entries = list(self.time_keeper.data.get(date, []))
         entries.sort(key=lambda entry: entry.get("timestamp", ""))
         return {"date": date, "entries": entries}
 
     def _entries_post(self, payload):
-        entry_type = self._parse_entry_type(payload.get("type"))
+        entry_type = self.time_keeper.parse_entry_type(payload.get("type"))
         date = payload.get("date") or datetime.date.today().isoformat()
-        timestamp = self._parse_iso_datetime(payload.get("timestamp")) if payload.get("timestamp") else None
+        timestamp = parse_iso_datetime(payload.get("timestamp")) if payload.get("timestamp") else None
 
-        entry = self.data.add_entry_at(date=date, entry_type=entry_type, timestamp=timestamp)
-        self.data.save_data()
+        entry = self.time_keeper.add_entry_at(date=date, entry_type=entry_type, timestamp=timestamp)
+        self.time_keeper.save_data()
         cherrypy.response.status = 201
         return {"ok": True, "entry": entry}
 
     def _entries_patch(self, entry_id_raw, payload):
         try:
             entry_id = int(entry_id_raw)
-        except (TypeError, ValueError):
-            raise cherrypy.HTTPError(400, "Entry id must be an integer")
+        except (TypeError, ValueError) as e:
+            raise cherrypy.HTTPError(400, "Entry id must be an integer") from e
 
         new_type = None
         if "type" in payload:
-            new_type = self._parse_entry_type(payload.get("type"))
+            new_type = self.time_keeper.parse_entry_type(payload.get("type"))
 
         new_timestamp = None
         if "timestamp" in payload:
-            new_timestamp = self._parse_iso_datetime(payload.get("timestamp"))
+            new_timestamp = parse_iso_datetime(payload.get("timestamp"))
 
         new_date = payload.get("date")
 
-        if not self._entry_exists(entry_id):
+        if not self.time_keeper.entry_exists(entry_id):
             raise cherrypy.HTTPError(404, "Entry not found")
 
-        self.data.edit_entry(
+        self.time_keeper.edit_entry(
             entry_id=entry_id,
             new_type=new_type,
             new_timestamp=new_timestamp,
             new_date=new_date,
         )
-        self.data.save_data()
+        self.time_keeper.save_data()
         return {"ok": True}
 
     def _entries_delete(self, entry_id_raw):
         try:
             entry_id = int(entry_id_raw)
-        except (TypeError, ValueError):
-            raise cherrypy.HTTPError(400, "Entry id must be an integer")
+        except (TypeError, ValueError) as e:
+            raise cherrypy.HTTPError(400, "Entry id must be an integer") from e
 
-        if not self._entry_exists(entry_id):
+        if not self.time_keeper.entry_exists(entry_id):
             raise cherrypy.HTTPError(404, "Entry not found")
 
-        self.data.delete_entry(entry_id)
-        self.data.save_data()
+        self.time_keeper.delete_entry(entry_id)
+        self.time_keeper.save_data()
         cherrypy.response.status = 204
         return None
 
     def _summary_get(self, params):
         date = params.get("date") or datetime.date.today().isoformat()
-        worked = self.data.get_time_worked(date)
-        target = ":".join(map(str, self.config.get_daily_target()))
-        print(f"Worked: {worked}, Target: {target}")
-        delta = self._duration_delta(worked, target)
-        print(f"Delta: {delta}")
+        worked = self.time_keeper.get_time_worked(date)
+        target = self.config.get_daily_target()
+        delta = duration_delta(worked, target)
         return {
             "date": date,
             "worked": worked,
             "target": target,
             "delta": delta,
-            "weekly_delta": self.data.get_worked_delta_range(get_week_start(date), date, target),
-            "total_delta": self.data.get_worked_delta_range(self.data.get_first_date() or date, date, target),
-            "last_entry": self.data.get_last_entry(date),
+            "weekly_delta": self.time_keeper.get_worked_delta_range(get_week_start(date).isoformat(), date, target),
+            "total_delta": self.time_keeper.get_worked_delta_range(self.time_keeper.get_first_date() or date, date, target),
+            "last_entry": self.time_keeper.get_last_entry(date),
         }
 
     def _history_get(self, params):
@@ -138,10 +151,10 @@ class TimeIt(object):
         last = params.get("last", None)
         try:
             limit = max(1, int(raw_limit))
-        except ValueError:
-            raise cherrypy.HTTPError(400, "limit must be an integer")
+        except ValueError as e:
+            raise cherrypy.HTTPError(400, "limit must be an integer") from e
 
-        dates = sorted(self.data.data.keys(), reverse=True)
+        dates = sorted(self.time_keeper.data.keys(), reverse=True)
         if last is not None:
             try:
                 last_index = dates.index(str(last))
@@ -152,16 +165,18 @@ class TimeIt(object):
 
         history = []
         for date in dates:
-            worked = self.data.get_time_worked(date)
-            target = ":".join(map(str, self.config.get_daily_target()))
-            history.append({
-                "date": date,
-                "worked": worked,
-                "delta": self._duration_delta(worked, target),
-            })
-        return {"history": history, "full_length": len(self.data.data)}
+            worked = self.time_keeper.get_time_worked(date)
+            target = self.config.get_daily_target()
+            history.append(
+                {
+                    "date": date,
+                    "worked": worked,
+                    "delta": duration_delta(worked, target),
+                }
+            )
+        return {"history": history, "full_length": len(self.time_keeper.data)}
 
-    def _attendance_get(self, params):
+    def _attendance_get(self):
         return {"records": self.attendance.records}
 
     def _attendance_post(self, params):
@@ -181,71 +196,15 @@ class TimeIt(object):
         except Exception as exc:
             raise cherrypy.HTTPError(400, f"Invalid JSON body: {exc}")
 
-    def _parse_entry_type(self, value):
-        if value is None:
-            return EntryType.AGNOSTIC
-        try:
-            return EntryType(str(value).lower())
-        except ValueError:
-            allowed = ", ".join(item.value for item in EntryType)
-            raise cherrypy.HTTPError(400, f"Invalid type '{value}'. Use one of: {allowed}")
-
-    def _parse_iso_datetime(self, value):
-        if value is None:
-            return None
-        normalized = str(value).replace("Z", "+00:00")
-        try:
-            return datetime.datetime.fromisoformat(normalized)
-        except ValueError:
-            raise cherrypy.HTTPError(400, "timestamp must be ISO-8601")
-
-    def _entry_exists(self, entry_id):
-        for entries in self.data.data.values():
-            for entry in entries:
-                if int(entry.get("id", -1)) == entry_id:
-                    return True
-        return False
-
-    def _duration_delta(self, worked, target):
-        worked_seconds = self._duration_to_seconds(worked)
-        target_seconds = self._duration_to_seconds(target)
-        diff = worked_seconds - target_seconds
-        sign = "+" if diff >= 0 else "-"
-        return f"{sign}{self._seconds_to_duration(abs(diff))}"
-
-    def _duration_to_seconds(self, duration):
-        text = str(duration).strip()
-        day_count = 0
-        time_part = text
-
-        if "day" in text:
-            day_text, time_part = text.split(",", 1)
-            day_count = int(day_text.split()[0])
-            time_part = time_part.strip()
-
-        parts = time_part.split(":")
-        if len(parts) != 3:
-            raise cherrypy.HTTPError(400, f"Invalid duration format: {duration}")
-
-        hours = int(parts[0])
-        minutes = int(parts[1])
-        seconds = int(float(parts[2]))
-        hours += day_count * 24
-        return (hours * 3600) + (minutes * 60) + seconds
-
-    def _seconds_to_duration(self, total_seconds):
-        hours = total_seconds // 3600
-        minutes = (total_seconds % 3600) // 60
-        seconds = total_seconds % 60
-        return f"{hours:01d}:{minutes:02d}:{seconds:02d}"
-
 
 if __name__ == "__main__":
-    cherrypy.config.update({
-        "server.socket_host": "0.0.0.0",
-        "server.socket_port": 8080,
-        "tools.staticdir.root": APP_ROOT,
-    })
+    cherrypy.config.update(
+        {
+            "server.socket_host": "0.0.0.0",
+            "server.socket_port": 8080,
+            "tools.staticdir.root": APP_ROOT,
+        }
+    )
 
     app_config = {
         "/": {
@@ -262,7 +221,7 @@ if __name__ == "__main__":
             "tools.staticdir.on": True,
             "tools.staticdir.dir": "static/",
             "tools.staticdir.match": r"^/static(?:/|$)",
-            "tools.staticdir.index": "index.html"
+            "tools.staticdir.index": "index.html",
         },
     }
 
