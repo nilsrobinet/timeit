@@ -90,6 +90,18 @@ class ApiInteractor {
             .then(response => response.json()).then(data => data)
         return config
     }
+
+    async getAttendance() {
+        const attendance = await fetch(this.buildUrl('attendance'))
+            .then(res => res.json())
+        return attendance
+    }
+
+    async addAttendance(status, date) {
+        await fetch(this.buildUrl('attendance', { status, date }), {
+            method: 'POST',
+        })
+    }
 }
 
 export { ApiInteractor }

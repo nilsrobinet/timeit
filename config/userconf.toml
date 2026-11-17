@@ -1,6 +1,9 @@
 [work]
 target = [8,0] # h,m,s
 
+[attendance]
+weekly_office_target = 2.5 # days
+
 [data]
 persistence = "json" # TODO implement other persistence backends, e.g. sqlite, postgres
 timekeeping_path = "data.json"

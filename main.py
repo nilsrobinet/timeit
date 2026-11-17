@@ -3,11 +3,11 @@ import datetime
 import json
 import cherrypy
 from src.TimeIt import TimeIt as TimeItData, EntryType
+from src.Attendance import Attendance
 from src.TimeUtil import get_week_start
 from src.ConfigHandler import ConfigHandler
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
-
 class TimeIt(object):
 
     def __init__(self):
@@ -15,11 +15,14 @@ class TimeIt(object):
         self.config.load()
         self.data = TimeItData(os.path.join(APP_ROOT, self.config.get_timekeeping_path()))
         self.data.load_data()
+        self.attendance = Attendance(os.path.join(APP_ROOT, self.config.get_attendance_path()))
+        self.attendance.load_attendance()
     
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def api(self, *vpath, **params):
         self.data.reload_if_changed()
+        self.attendance.reload_if_changed()
         method = cherrypy.request.method.upper()
 
         if not vpath:
@@ -46,6 +49,12 @@ class TimeIt(object):
 
         if resource == "config" and method == "GET":
             return self.config.get_config()
+
+        if resource == "attendance":
+            if method == "GET":
+                return self._attendance_get(params)
+            if method == "POST":
+                return self._attendance_post(params)
 
         raise cherrypy.HTTPError(404, "Unknown API route")
 
@@ -152,6 +161,15 @@ class TimeIt(object):
             })
         return {"history": history, "full_length": len(self.data.data)}
 
+    def _attendance_get(self, params):
+        return {"records": self.attendance.records}
+
+    def _attendance_post(self, params):
+        date = params.get("date")
+        status = params.get("status")
+        self.attendance.add_record(date, status)
+        return {"ok": True}
+
     def _read_json_body(self, required=False):
         raw_body = cherrypy.request.body.read()
         if not raw_body:
@@ -220,12 +238,8 @@ class TimeIt(object):
         minutes = (total_seconds % 3600) // 60
         seconds = total_seconds % 60
         return f"{hours:01d}:{minutes:02d}:{seconds:02d}"
-    
-    
-    
-    
-    
-    
+
+
 if __name__ == "__main__":
     cherrypy.config.update({
         "server.socket_host": "0.0.0.0",
