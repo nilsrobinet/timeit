@@ -4,13 +4,16 @@ import json
 import cherrypy
 from src.TimeIt import TimeIt as TimeItData, EntryType
 from src.TimeUtil import get_week_start
+from src.ConfigHandler import ConfigHandler
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 class TimeIt(object):
 
     def __init__(self):
-        self.data = TimeItData(os.path.join(APP_ROOT, "data.json"))
+        self.config = ConfigHandler(os.path.join(APP_ROOT, "config/userconf.toml"))
+        self.config.load()
+        self.data = TimeItData(os.path.join(APP_ROOT, self.config.get_timekeeping_path()))
         self.data.load_data()
     
     @cherrypy.expose
@@ -40,6 +43,9 @@ class TimeIt(object):
 
         if resource == "history" and method == "GET":
             return self._history_get(params)
+
+        if resource == "config" and method == "GET":
+            return self.config.get_config()
 
         raise cherrypy.HTTPError(404, "Unknown API route")
 
@@ -104,7 +110,7 @@ class TimeIt(object):
     def _summary_get(self, params):
         date = params.get("date") or datetime.date.today().isoformat()
         worked = self.data.get_time_worked(date)
-        target = "8:00:00"
+        target = ":".join(map(str, self.config.get_daily_target()))
         print(f"Worked: {worked}, Target: {target}")
         delta = self._duration_delta(worked, target)
         print(f"Delta: {delta}")
@@ -138,7 +144,7 @@ class TimeIt(object):
         history = []
         for date in dates:
             worked = self.data.get_time_worked(date)
-            target = "8:00:00"
+            target = ":".join(map(str, self.config.get_daily_target()))
             history.append({
                 "date": date,
                 "worked": worked,

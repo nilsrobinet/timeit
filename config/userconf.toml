@@ -1,0 +1,7 @@
+[work]
+target = [8,0] # h,m,s
+
+[data]
+persistence = "json" # TODO implement other persistence backends, e.g. sqlite, postgres
+timekeeping_path = "data.json"
+attendance_path = "attendance.json"

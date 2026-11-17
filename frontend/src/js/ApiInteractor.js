@@ -84,6 +84,12 @@ class ApiInteractor {
             .then(response => response.json()).then(data => ({ history: data.history, fullLength: data.full_length }))
         return {history: history.history, fullLength: history.fullLength}
     }
+
+    async getConfig() {
+        const config = await fetch(this.buildUrl('config'))
+            .then(response => response.json()).then(data => data)
+        return config
+    }
 }
 
 export { ApiInteractor }
