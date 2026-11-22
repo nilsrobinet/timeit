@@ -1,16 +1,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import AttendanceForm from '../components/AttendanceForm.vue'
-const attendance = ref([])
 import { ApiInteractor } from '../js/ApiInteractor.js'
 import { formatToday } from '../js/time.js'
 
 const api = new ApiInteractor()
 
 const history = ref([])
-let currentHistorySize = history.value.length
+const fullLength = ref(0)
 let currentLast = formatToday()
-let fullLength = -1
 
 class HistoryItem {
     constructor(item) {
@@ -34,8 +32,7 @@ const loadMore = async () => {
     if (response.history.length > 0) {
         currentLast = response.history[response.history.length - 1].date
     }
-    currentHistorySize = history.value.length
-    fullLength = response.fullLength
+    fullLength.value = response.full_length
 }
 
 // TODO: this might be moved to a separate utility file for consistency across the app and for translation purposes
@@ -59,22 +56,22 @@ onMounted(loadMore)
                 </thead>
                 <tbody>
                     <tr v-for="item in history" :key="item.date">
-                        <td>{{ dayNames[item.date.getDay()] }} {{ item.date.toLocaleDateString() }}</td>
-                        <td>{{ item.worked }}</td>
-                        <td>{{ item.delta }}</td>
-                        <td>
+                        <td data-label="Date">{{ dayNames[item.date.getDay()] }} {{ item.date.toLocaleDateString() }}
+                        </td>
+                        <td data-label="Worked">{{ item.worked }}</td>
+                        <td data-label="Delta">{{ item.delta }}</td>
+                        <td data-label="Attendance">
                             <AttendanceForm v-model="item.attendance"
                                 @updated="api.setAttendance(item.date, item.attendance)" />
                         </td>
                     </tr>
-                    <tr v-if="currentHistorySize < fullLength">
+                    <tr v-if="history.length < fullLength" class="history-load-more-row">
                         <td colspan="4" class="history-load-more-cell">
                             <button class="button button-outline" @click="loadMore">Load More</button>
                         </td>
                     </tr>
 
                 </tbody>
-                <button @click="loadMore">Load More</button>
             </table>
         </div>
     </section>
@@ -99,5 +96,69 @@ onMounted(loadMore)
 
 .history-load-more-cell {
     text-align: center;
+}
+
+@media (max-width: 600px) {
+    .history-container {
+        max-height: none;
+        overflow: visible;
+        border: 0;
+    }
+
+    .history-table {
+        min-width: 0;
+    }
+
+    .history-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+    }
+
+    .history-table tbody {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .history-table tbody tr:not(.history-load-more-row) {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+        padding: 0.8rem;
+        border: 1px solid var(--border);
+        border-radius: 0.35rem;
+    }
+
+    .history-table tbody td {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        font-size: 0.85rem;
+        overflow-wrap: anywhere;
+    }
+
+    .history-table tbody td::before {
+        content: attr(data-label);
+        color: var(--text);
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    .history-table .history-load-more-row {
+        display: block;
+    }
+
+    .history-table .history-load-more-cell {
+        display: block;
+        padding: 0.5rem 0;
+        border: 0;
+    }
+
+    .history-table .history-load-more-cell::before {
+        content: none;
+    }
 }
 </style>

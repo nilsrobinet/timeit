@@ -6,6 +6,7 @@ import TimeKeepingEntry from '../js/TimeKeepingEntry.js'
 import StatsOverview from '../components/StatsOverview.vue'
 import DayEntryList from '../components/EntryList.vue'
 import EditForm from '../components/EditForm.vue'
+import AttendanceForm from '../components/AttendanceForm.vue'
 
 const currentDateStr = ref(formatToday())
 
@@ -29,9 +30,11 @@ function refreshSummary() {
 refreshSummary()
 
 const thisDayEntries = ref([])
+const attendance = ref('undefined')
 function refreshEntries() {
     api.getDay().then(data => {
         thisDayEntries.value = data.entries.map(entry => new TimeKeepingEntry(entry))
+        attendance.value = data.attendance
     })
 }
 refreshEntries()
@@ -88,6 +91,7 @@ function getButtonText() {
             </div>
             <StatsOverview :summary="summary" :do-live-update="currentDateStr == formatToday()" />
             <button class="button button-accent primary-button" @click="checkInOut">{{ getButtonText() }}</button>
+            <AttendanceForm v-model="attendance" @updated="api.setAttendance(currentDateStr, attendance)" />
         </section>
         <section class="entries-section">
             <h2>Entries</h2>
