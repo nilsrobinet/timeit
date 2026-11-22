@@ -12,6 +12,16 @@ class ApiInteractor {
         return day
     }
 
+    async getDays(from, limit = 10) {
+        const days = await fetch(this.buildUrl('days', { from, limit })).then(r => r.json())
+        return days
+    }
+
+    async getDaysSummary(from, limit = 10) {
+        const summary = await fetch(this.buildUrl('days/summary', { from, limit })).then(r => r.json())
+        return summary
+    }
+
     /**
      * Get a summary for the current day from the backend API
      * @returns {Object} An object containing the summary for the current day, including date, worked, target, day, weekly, and total durations
@@ -50,7 +60,7 @@ class ApiInteractor {
      * @param {TimeKeepingEntry} entry 
      */
     async addEntry(date, start) {
-         await fetch(this.buildUrl('day'), {
+         await fetch(this.buildUrl('day/entry'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -73,10 +83,12 @@ class ApiInteractor {
         })
     }
 
-    async getHistory(last, limit = 10) {
-         const history = await fetch(this.buildUrl('history', { last, limit }))
-            .then(response => response.json()).then(data => ({ history: data.history, fullLength: data.full_length }))
-        return {history: history.history, fullLength: history.fullLength}
+    async setAttendance(date, status) {
+        await fetch(this.buildUrl('day/attendance'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: formatDate(date), status })
+        })
     }
 
     async getConfig() {

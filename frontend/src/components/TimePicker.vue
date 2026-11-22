@@ -20,7 +20,6 @@ let tsplit = time.value.split(':')
 seconds.value = tsplit[2]
 minutes.value = tsplit[1]
 hours.value = tsplit[0]
-console.log("time", time.value, hours.value, minutes.value, seconds.value)
 
 function updateTimeEvent(hours, minutes, seconds) {
     emit('update:modelValue', `${hours}:${minutes}:${seconds}`);
@@ -43,7 +42,8 @@ watch([hours, minutes, seconds], () => updateTimeEvent(hours.value, minutes.valu
             <span>:</span>
             <input class="form-control time-picker-input" type="number" v-model="minutes" min="0" max="59">
             <span v-if="props.showSeconds">:</span>
-            <input v-if="props.showSeconds" class="form-control time-picker-input" type="number" v-model="seconds" min="0" max="59">
+            <input v-if="props.showSeconds" class="form-control time-picker-input" type="number" v-model="seconds"
+                min="0" max="59">
             <button class="button" @click="showDialog = false">OK</button>
         </section>
     </div>

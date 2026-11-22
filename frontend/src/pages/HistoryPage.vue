@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import AttendanceForm from '../components/AttendanceForm.vue'
 const attendance = ref([])
 import { ApiInteractor } from '../js/ApiInteractor.js'
 import { formatToday } from '../js/time.js'
@@ -16,11 +17,19 @@ class HistoryItem {
         this.date = new Date(item.date)
         this.worked = item.worked
         this.delta = item.delta
+        this.attendance = item.attendance
+    }
+
+    hasValidAttendance() {
+        return this.attendance.toLowerCase() !== 'undefined'
     }
 }
 
 const loadMore = async () => {
-    const response = await api.getHistory(currentLast, 25)
+    const response = await api.getDaysSummary(currentLast, 25)
+
+    console.log(response.history)
+
     history.value = history.value.concat(response.history.map(item => new HistoryItem(item)))
     if (response.history.length > 0) {
         currentLast = response.history[response.history.length - 1].date
@@ -31,23 +40,6 @@ const loadMore = async () => {
 
 // TODO: this might be moved to a separate utility file for consistency across the app and for translation purposes
 const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
-
-function loadAttendance() {
-    api.getAttendance().then(data => attendance.value = data)
-}
-loadAttendance()
-
-function getAttendance(date) {
-    if (!date) return null
-    if (attendance.value.length === 0) return null
-    console.log(attendance.value.records[date])
-    return attendance.value.records[date] || null
-}
-
-function hasAttendance(date) {
-    return !!getAttendance(date)
-}
-
 onMounted(loadMore)
 
 </script>
@@ -70,9 +62,10 @@ onMounted(loadMore)
                         <td>{{ dayNames[item.date.getDay()] }} {{ item.date.toLocaleDateString() }}</td>
                         <td>{{ item.worked }}</td>
                         <td>{{ item.delta }}</td>
-                        <td v-if="hasAttendance(item.date.toISOString().split('T')[0])">{{
-                            getAttendance(item.date.toISOString().split('T')[0])?.status }}</td>
-                        <td v-else>-</td>
+                        <td>
+                            <AttendanceForm v-model="item.attendance"
+                                @updated="api.setAttendance(item.date, item.attendance)" />
+                        </td>
                     </tr>
                     <tr v-if="currentHistorySize < fullLength">
                         <td colspan="4" class="history-load-more-cell">
@@ -81,6 +74,7 @@ onMounted(loadMore)
                     </tr>
 
                 </tbody>
+                <button @click="loadMore">Load More</button>
             </table>
         </div>
     </section>
@@ -106,5 +100,4 @@ onMounted(loadMore)
 .history-load-more-cell {
     text-align: center;
 }
-
 </style>

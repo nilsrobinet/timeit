@@ -42,9 +42,13 @@ class TimeIt(object):
         if resource == "day":
             if method == "GET" and len(vpath) == 1:
                 response = self._day_get(params)
-            elif method == "POST" and len(vpath) == 1:
-                payload = self._read_json_body(required=True)
-                response = self._day_post(payload)
+            elif method == "POST":
+                if len(vpath) == 2 and vpath[1] == "entry":
+                    payload = self._read_json_body(required=True)
+                    response = self._day_entry_post(payload)
+                elif len(vpath) == 2 and vpath[1] == "attendance":
+                    payload = self._read_json_body(required=True)
+                    response = self._day_attendance_post(payload)
             elif method == "PATCH" and len(vpath) == 2:
                 payload = self._read_json_body(required=True)
                 response = self._day_patch(vpath[1], payload)
@@ -55,7 +59,10 @@ class TimeIt(object):
         elif resource == "summary" and method == "GET":
             response = self._summary_get(params)
         elif resource == "days" and method == "GET":
-            response = self._days_get(params)
+            if len(vpath) == 1:
+                response = self._days_get(params)
+            elif len(vpath) == 2 and vpath[1] == "summary":
+                response = self._days_summary_get(params)
         elif resource == "config" and method == "GET":
             response = self.config.get_config()
         else:
@@ -67,12 +74,10 @@ class TimeIt(object):
 
     def _day_get(self, params):
         date = params.get("date") or datetime.date.today().isoformat()
-        print(date)
         day = self.time_keeper.get_day(date)
-        print(day.to_dict())
         return day.to_dict()
 
-    def _day_post(self, payload):
+    def _day_entry_post(self, payload):
         entry_type = EntryType(payload.get("type"))
         date = payload.get("date") or datetime.date.today().isoformat()
         timestamp = parse_iso_datetime(payload.get("timestamp")) if payload.get("timestamp") else None
@@ -81,6 +86,14 @@ class TimeIt(object):
         self.time_keeper.save_data()
         cherrypy.response.status = 201
         return {"ok": True, "entry": entry}
+
+    def _day_attendance_post(self, payload):
+        date = payload.get("date") or datetime.date.today().isoformat()
+        status = payload.get("status")
+        print(date, status)
+        self.time_keeper.get_day(date).set_attendance(status)
+        self.time_keeper.save_data()
+        return {"ok": True}
 
     def _day_patch(self, entry_id_raw, payload):
         try:
@@ -134,6 +147,24 @@ class TimeIt(object):
 
         history = [d.to_dict() for d in self.time_keeper.get_days(from_day, limit)]
 
+        return {"history": history, "full_length": len(self.time_keeper.data)}
+
+    def _days_summary_get(self, params):
+        from_day = params.get("from", None)
+        try:
+            limit = int(params.get("limit", "14"))
+        except ValueError as e:
+            raise cherrypy.HTTPError(400, "limit must be an integer") from e
+
+        history = [
+            {
+                "date": d.date,
+                "worked": seconds_to_duration(int(d.get_time_worked().total_seconds())),
+                "delta": duration_delta(seconds_to_duration(int(d.get_time_worked().total_seconds())), self.config.get_daily_target()),
+                "attendance": d.get_attendance().value,
+            }
+            for d in self.time_keeper.get_days(from_day, limit)
+        ]
         return {"history": history, "full_length": len(self.time_keeper.data)}
 
     def _summary_get(self, params):

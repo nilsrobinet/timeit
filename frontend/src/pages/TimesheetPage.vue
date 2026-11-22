@@ -31,7 +31,6 @@ refreshSummary()
 const thisDayEntries = ref([])
 function refreshEntries() {
     api.getDay().then(data => {
-        console.log(data)
         thisDayEntries.value = data.entries.map(entry => new TimeKeepingEntry(entry))
     })
 }
@@ -44,7 +43,6 @@ function deleteEntry(id) {
     })
 }
 function editEntry(entry) {
-    console.log('Editing entry:', entry)
     showEditForm.value = true
     editingEntry.value = entry
 }

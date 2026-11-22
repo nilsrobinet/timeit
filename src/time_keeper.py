@@ -100,6 +100,25 @@ class Day:
         self.attendance = attendance
         self.entries: list[Entry] = []
 
+    def set_attendance(self, status: str | Attendance):
+        if isinstance(status, Attendance):
+            self.attendance = status
+        else:
+            status = status.upper()
+            self.attendance = _enum_from_json(Attendance, status)
+
+    def get_date(self) -> str:
+        """Get date.
+        :returns: Date
+        """
+        return self.date
+
+    def get_attendance(self) -> Attendance:
+        """Get attendance.
+        :returns: Attendance
+        """
+        return self.attendance
+
     def add_entry(self, entry: Entry):
         """Add entry.
         :param entry: Entry to add
@@ -291,10 +310,10 @@ class TimeKeeper:
         :param limit: max number of days
         :returns: list of days
         """
-        dates = sorted(self.data.keys())
+        dates = [datetime.date.fromisoformat(d) for d in sorted(self.data.keys(), reverse=True)]
         if from_day:
-            dates = [d for d in dates if d >= from_day]
-        return [self.data[d] for d in dates[:limit]]
+            dates = [d for d in dates if d < datetime.date.fromisoformat(from_day)]
+        return [self.data[d.isoformat()] for d in dates[:limit]]
 
     def get_worked_weekly(self, date: str, target: str) -> datetime.timedelta:
         """Get worked time for the week
