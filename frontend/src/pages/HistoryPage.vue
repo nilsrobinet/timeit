@@ -53,10 +53,10 @@ onMounted(loadMore)
 </script>
 
 <template>
-    <div>
+    <section class="content-page history-page">
         <h1>History</h1>
         <div class="history-container">
-            <table>
+            <table class="data-table history-table">
                 <thead>
                     <tr>
                         <th>Date</th>
@@ -75,20 +75,36 @@ onMounted(loadMore)
                         <td v-else>-</td>
                     </tr>
                     <tr v-if="currentHistorySize < fullLength">
-                        <td colspan="3">
-                            <button @click="loadMore">Load More</button>
+                        <td colspan="4" class="history-load-more-cell">
+                            <button class="button button-outline" @click="loadMore">Load More</button>
                         </td>
                     </tr>
 
                 </tbody>
             </table>
         </div>
-    </div>
+    </section>
 </template>
 
 <style scoped>
 .history-container {
     max-height: 70vh;
-    overflow-y: auto;
+    overflow: auto;
+    border-block: 1px solid var(--border);
 }
+
+.history-table {
+    min-width: 36rem;
+}
+
+.history-table th {
+    position: sticky;
+    top: 0;
+    background: var(--code-bg);
+}
+
+.history-load-more-cell {
+    text-align: center;
+}
+
 </style>

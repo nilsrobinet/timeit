@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, defineEmits } from 'vue'
+import { ref, watch } from 'vue'
 
 const emit = defineEmits(['update:modelValue'])
 
@@ -33,34 +33,37 @@ watch([hours, minutes, seconds], () => updateTimeEvent(hours.value, minutes.valu
 
 
 <template>
-    <div @click="showDialog = true">
+    <div class="time-picker-value" @click="showDialog = true">
         {{ hours }}:{{ minutes }}<span v-if="props.showSeconds">:{{ seconds }}</span>
     </div>
-    <div v-if="showDialog" class="form-backdrop edit-form-backdrop" @click.self="showDialog = false">
-        <section class="form-dialog" role="dialog" aria-modal="true" aria-label="Edit Entry">
+    <div v-if="showDialog" class="form-backdrop" @click.self="showDialog = false">
+        <section class="form-dialog form-dialog--compact" role="dialog" aria-modal="true" aria-label="Edit Entry">
             <h2>HH:MM<span v-if="props.showSeconds">:SS</span></h2>
-            <input type="number" v-model="hours" min="0" max="23">
+            <input class="form-control time-picker-input" type="number" v-model="hours" min="0" max="23">
             <span>:</span>
-            <input type="number" v-model="minutes" min="0" max="59">
+            <input class="form-control time-picker-input" type="number" v-model="minutes" min="0" max="59">
             <span v-if="props.showSeconds">:</span>
-            <input v-if="props.showSeconds" type="number" v-model="seconds" min="0" max="59">
-            <button @click="showDialog = false">OK</button>
+            <input v-if="props.showSeconds" class="form-control time-picker-input" type="number" v-model="seconds" min="0" max="59">
+            <button class="button" @click="showDialog = false">OK</button>
         </section>
     </div>
 </template>
 
 <style scoped>
-.form-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    display: grid;
-    place-items: center;
-    background: rgb(0 0 0 / 50%);
+.time-picker-input {
+    width: 4rem;
 }
 
-.form-dialog {
-    padding: 1.5rem;
-    background: white;
+.time-picker-value {
+    grid-column: 2;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    color: var(--text-h);
+    cursor: pointer;
+}
+
+.time-picker-value:hover {
+    background: var(--code-bg);
 }
 </style>

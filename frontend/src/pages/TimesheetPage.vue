@@ -80,11 +80,79 @@ function getButtonText() {
 </script>
 
 <template>
-    <div>
-        <input v-model="currentDateStr" type="date" @change="onDateChange" />
-        <StatsOverview :summary="summary" :do-live-update="currentDateStr == formatToday()" />
-        <DayEntryList :entries="thisDayEntries" @delete="deleteEntry" @edit="editEntry" />
-        <button @click="checkInOut">{{ getButtonText() }}</button>
+    <section class="content-page timesheet-page">
+        <section class="timesheet-focus">
+            <div class="timesheet-date">
+                <input id="timesheet-date" class="form-control" v-model="currentDateStr" type="date"
+                    @change="onDateChange" />
+            </div>
+            <StatsOverview :summary="summary" :do-live-update="currentDateStr == formatToday()" />
+            <button class="button button-accent primary-button" @click="checkInOut">{{ getButtonText() }}</button>
+        </section>
+        <section class="entries-section">
+            <h2>Entries</h2>
+            <DayEntryList :entries="thisDayEntries" @delete="deleteEntry" @edit="editEntry" />
+        </section>
         <EditForm v-if="showEditForm" :entry="editingEntry" @save="saveEntry" @cancel="showEditForm = false" />
-    </div>
+    </section>
 </template>
+
+<style scoped>
+.timesheet-page {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.timesheet-date {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    color: var(--text);
+    font-size: 0.85rem;
+}
+
+.timesheet-date input {
+    max-width: 100%;
+}
+
+.timesheet-focus {
+    position: sticky;
+    top: 3.5rem;
+    z-index: 10;
+    display: grid;
+    justify-items: center;
+    gap: 1.25rem;
+    padding: 1.25rem 1.75rem;
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 0.5rem;
+    background: var(--code-bg);
+}
+
+.primary-button {
+    width: min(100%, 18rem);
+    font-weight: 600;
+}
+
+.entries-section h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.3rem;
+}
+
+@media (max-width: 480px) {
+    .timesheet-page {
+        gap: 1rem;
+        padding-top: 1rem;
+    }
+
+    .timesheet-date {
+        justify-content: flex-start;
+    }
+
+    .timesheet-focus {
+        gap: 0.9rem;
+        padding: 1rem 0.75rem;
+    }
+}
+</style>

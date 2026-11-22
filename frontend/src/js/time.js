@@ -69,9 +69,9 @@ class FDuration {
     /**
      * @returns {string} The formatted duration string in the format "+HH:MM:SS" or "-HH:MM:SS"
      */
-    toString() {
+    toString(discardPositive) {
         const {sign, hours, minutes, seconds } = this.duration
-        return `${sign}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+        return `${discardPositive && sign === '+' ? '' : sign}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
     }
 
     delta(duration) {

@@ -14,27 +14,69 @@ api.getConfig().then(conf => {
 </script>
 
 <template>
-    <div>
+    <section class="content-page settings-page">
         <h1>Settings</h1>
-        <form v-if="config">
-            <label for="daily-target">Daily Target:</label>
-            <input id="daily-target" type="text" placeholder="08:00" required pattern="[0-9]{1,3}:[0-5][0-9]"
-                title="Enter hours and minutes, e.g. 08:00" v-model="config.work.target" disabled />
-            <br />
-            <label for="persistance">Persistence method:</label>
-            <select v-model="config.data.persistence" id="persistance" disabled>
-                <option value="json">JSON</option>
-                <option value="sqlite">SQLite</option>
-            </select>
-            <br />
-            <label for="timekeeping-path">Timekeeping path:</label>
-            <input id="timekeeping-path" type="text" v-model="config.data.timekeeping_path" disabled />
-            <br />
-            <label for="attendance-path">Attendance path:</label>
-            <input id="attendance-path" type="text" v-model="config.data.attendance_path" disabled />
-            <br />
+        <form v-if="config" class="settings-form">
+            <div class="settings-field">
+                <label for="daily-target">Daily target</label>
+                <input id="daily-target" class="form-control" type="text" placeholder="08:00" required pattern="[0-9]{1,3}:[0-5][0-9]"
+                    title="Enter hours and minutes, e.g. 08:00" v-model="config.work.target" disabled />
+            </div>
+            <div class="settings-field">
+                <label for="persistance">Persistence method</label>
+                <select class="form-control" v-model="config.data.persistence" id="persistance" disabled>
+                    <option value="json">JSON</option>
+                    <option value="sqlite">SQLite</option>
+                </select>
+            </div>
+            <div class="settings-field">
+                <label for="timekeeping-path">Timekeeping path</label>
+                <input id="timekeeping-path" class="form-control" type="text" v-model="config.data.timekeeping_path" disabled />
+            </div>
+            <div class="settings-field">
+                <label for="attendance-path">Attendance path</label>
+                <input id="attendance-path" class="form-control" type="text" v-model="config.data.attendance_path" disabled />
+            </div>
 
-            <button type="submit">Save</button>
+            <button class="button" type="submit">Save</button>
         </form>
-    </div>
+    </section>
 </template>
+
+<style scoped>
+.settings-form {
+    display: grid;
+    gap: 1rem;
+    max-width: 42rem;
+}
+
+.settings-field {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1fr) minmax(0, 2fr);
+    align-items: center;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.settings-field label {
+    color: var(--text-h);
+}
+
+.settings-field input,
+.settings-field select {
+    width: 100%;
+    min-width: 0;
+}
+
+.settings-form button {
+    justify-self: start;
+}
+
+@media (max-width: 560px) {
+    .settings-field {
+        grid-template-columns: 1fr;
+        gap: 0.4rem;
+    }
+}
+</style>
