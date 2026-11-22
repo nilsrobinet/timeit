@@ -1,5 +1,6 @@
 <script setup>
 import { reactive, watch } from 'vue'
+import TimePicker from './TimePicker.vue'
 
 const props = defineProps({
     entry: Object
@@ -50,7 +51,7 @@ function cancelEdit() {
                 <label for="date">Date:</label>
                 <span id="date">{{ props.entry?.date.toLocaleDateString() }}</span>
                 <label for="time">Time:</label>
-                <input v-model="form.time" id="time" type="time" step="1" required />
+                <TimePicker v-model="form.time" :show-seconds="false" />
                 <button type="submit">Save</button>
                 <button type="button" @click="cancelEdit()">Cancel</button>
             </form>
