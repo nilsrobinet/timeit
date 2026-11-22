@@ -50,8 +50,8 @@ class ApiInteractor {
      * Delete an entry by its ID from the backend API
      * @param {Number} id 
      */
-    async deleteEntry(id) {
-         await fetch(this.buildUrl(`day/${encodeURIComponent(id)}`), {
+    async deleteEntry(id, date) {
+         await fetch(this.buildUrl(`day`, { id: id, date: date}), {
             method: 'DELETE'
         })
     }
@@ -75,7 +75,7 @@ class ApiInteractor {
      * @param {TimeKeepingEntry} entry 
      */
     async editEntry(entry) {
-        await fetch(this.buildUrl(`day/${encodeURIComponent(entry.id)}`), {
+        await fetch(this.buildUrl(`day`, {id: entry.id}), {
            method: 'PATCH',
            headers: {
                'Content-Type': 'application/json'

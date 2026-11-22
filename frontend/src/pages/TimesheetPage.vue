@@ -41,7 +41,7 @@ function refreshEntries() {
 refreshEntries()
 
 function deleteEntry(id) {
-    api.deleteEntry(id).then(() => {
+    api.deleteEntry(id, currentDateStr.value).then(() => {
         thisDayEntries.value = thisDayEntries.value.filter(entry => entry.id !== id)
         refreshSummary()
     })
