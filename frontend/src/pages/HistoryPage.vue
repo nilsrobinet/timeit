@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+const attendance = ref([])
 import { ApiInteractor } from '../js/ApiInteractor.js'
 import { formatToday } from '../js/time.js'
 
@@ -26,11 +27,26 @@ const loadMore = async () => {
     }
     currentHistorySize = history.value.length
     fullLength = response.fullLength
-    console.log(history.value)
 }
 
 // TODO: this might be moved to a separate utility file for consistency across the app and for translation purposes
 const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+
+function loadAttendance() {
+    api.getAttendance().then(data => attendance.value = data)
+}
+loadAttendance()
+
+function getAttendance(date) {
+    if (!date) return null
+    if (attendance.value.length === 0) return null
+    console.log(attendance.value.records[date])
+    return attendance.value.records[date] || null
+}
+
+function hasAttendance(date) {
+    return !!getAttendance(date)
+}
 
 onMounted(loadMore)
 
@@ -46,6 +62,7 @@ onMounted(loadMore)
                         <th>Date</th>
                         <th>Worked</th>
                         <th>Delta</th>
+                        <th>Attendance</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -53,12 +70,16 @@ onMounted(loadMore)
                         <td>{{ dayNames[item.date.getDay()] }} {{ item.date.toLocaleDateString() }}</td>
                         <td>{{ item.worked }}</td>
                         <td>{{ item.delta }}</td>
+                        <td v-if="hasAttendance(item.date.toISOString().split('T')[0])">{{
+                            getAttendance(item.date.toISOString().split('T')[0])?.status }}</td>
+                        <td v-else>-</td>
                     </tr>
                     <tr v-if="currentHistorySize < fullLength">
                         <td colspan="3">
                             <button @click="loadMore">Load More</button>
                         </td>
                     </tr>
+
                 </tbody>
             </table>
         </div>

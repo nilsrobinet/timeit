@@ -7,9 +7,7 @@ const entries = ref([])
 const api = new ApiInteractor()
 
 function checkIn() {
-    console.log(status.value)
     const date = new Date().toISOString().split("T")[0]
-    console.log(date)
     api.addAttendance(status.value, date)
     loadEntries()
 }
