@@ -32,12 +32,6 @@ class ConfigHandler:
         """
         return self._loaded_config().get("data", {}).get("timekeeping_path")
 
-    def get_attendance_path(self) -> str:
-        """Get attendance path.
-        :returns: path as string
-        """
-        return self._loaded_config().get("data", {}).get("attendance_path")
-
     def load(self) -> None:
         """Load config."""
         with open(self.config_path, "rb") as f:

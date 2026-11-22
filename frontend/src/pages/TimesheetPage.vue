@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { FDuration, FDate, formatToday } from '../js/time.js'
 import { ApiInteractor } from '../js/ApiInteractor.js'
+import TimeKeepingEntry from '../js/TimeKeepingEntry.js'
 import StatsOverview from '../components/StatsOverview.vue'
 import DayEntryList from '../components/EntryList.vue'
 import EditForm from '../components/EditForm.vue'
@@ -29,8 +30,9 @@ refreshSummary()
 
 const thisDayEntries = ref([])
 function refreshEntries() {
-    api.getEntries(currentDateStr.value).then(data => {
-        thisDayEntries.value = data
+    api.getDay().then(data => {
+        console.log(data)
+        thisDayEntries.value = data.entries.map(entry => new TimeKeepingEntry(entry))
     })
 }
 refreshEntries()

@@ -4,12 +4,22 @@ import datetime
 import enum
 import json
 import os
+from typing import TypeVar
 
-import cherrypy
-
-from src.time_util import as_utc
+from src.time_util import as_utc, get_week_start, duration_to_seconds
 
 UTC = datetime.UTC
+EnumT = TypeVar("EnumT", bound=enum.Enum)
+
+
+class Attendance(enum.Enum):
+    """Attendance types."""
+
+    IN_OFFICE = "in_office"
+    REMOTE = "remote"
+    VACATION = "vacation"
+    SICK = "sick"
+    UNDEFINED = "undefined"
 
 
 class EntryType(enum.Enum):
@@ -20,14 +30,152 @@ class EntryType(enum.Enum):
     AGNOSTIC = "agnostic"
 
 
+def _enum_from_json(enum_type: type[EnumT], value: str) -> EnumT:
+    try:
+        return enum_type(value)
+    except ValueError:
+        return enum_type[value.upper()]
+
+
+class Entry:
+    """A time entry within a day."""
+
+    def __init__(self, e_type: EntryType, timestamp: datetime.datetime | None, e_id: int):
+        """Init entry.
+        :param type: Entry type
+        :param timestamp: Timestamp
+        :param id: Entry ID
+        """
+        self.type = e_type
+        self.timestamp: datetime.datetime = as_utc(timestamp or datetime.datetime.now(UTC))
+        self.id = e_id
+
+    def edit(self, new_type: EntryType | None, new_timestamp: datetime.datetime | None) -> None:
+        """Edit entry.
+        :param new_type: New type
+        :param new_timestamp: New timestamp
+        """
+        if new_type is not None:
+            self.type = new_type
+        if new_timestamp is not None:
+            self.timestamp = as_utc(new_timestamp)
+
+    def get_timestamp(self) -> datetime.datetime:
+        """Get timestamp.
+        :returns: Timestamp
+        """
+        return self.timestamp
+
+    def get_type(self) -> EntryType:
+        """Get type.
+        :returns: Entry type
+        """
+        return self.type
+
+    def to_dict(self) -> dict:
+        """Convert to dict.
+        :returns: Dict
+        """
+        return {"type": self.type.value, "timestamp": self.timestamp.isoformat(), "id": self.id}
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Entry":
+        """Create an entry from its serialized dictionary.
+        :param data: Dict
+        :returns: Entry
+        """
+        timestamp = data["timestamp"]
+        if isinstance(timestamp, str):
+            timestamp = datetime.datetime.fromisoformat(timestamp)
+        if not isinstance(timestamp, datetime.datetime):
+            raise TypeError("Entry timestamp must be an ISO-8601 string or datetime")
+        return cls(_enum_from_json(EntryType, data["type"]), timestamp, data["id"])
+
+
+class Day:
+    """A day with entries."""
+
+    def __init__(self, date: str, attendance: Attendance):
+        self.date = date
+        self.attendance = attendance
+        self.entries: list[Entry] = []
+
+    def add_entry(self, entry: Entry):
+        """Add entry.
+        :param entry: Entry to add
+        """
+        self.entries.append(entry)
+        self.entries.sort(key=lambda e: e.timestamp)
+
+    def get_entry(self, e_id: int) -> Entry | None:
+        """Get entry by ID.
+        :param e_id: Entry ID
+        :returns: Entry or None
+        """
+        for e in self.entries:
+            if e.id == e_id:
+                return e
+        return None
+
+    def delete_entry(self, e_id: int):
+        """Delete entry by ID.
+        :param e_id: Entry ID
+        """
+        self.entries = [e for e in self.entries if e.id != e_id]
+
+    def to_dict(self) -> dict:
+        """Convert to dict.
+        :returns: Dict
+        """
+        return {"date": self.date, "attendance": self.attendance.value, "entries": [e.to_dict() for e in self.entries]}
+
+    @classmethod
+    def from_dict(cls, data: dict, date: str | None = None) -> "Day":
+        """Create a day from its serialized dictionary.
+        :param data: Dict
+        :param date: Optional date
+        :returns: Day
+        """
+        day_date = data.get("date", date)
+        if day_date is None:
+            raise ValueError("Day date is required")
+        attendance = data.get("attendance", Attendance.UNDEFINED.value)
+        day = cls(day_date, _enum_from_json(Attendance, attendance))
+        for entry in data.get("entries", []):
+            day.add_entry(Entry.from_dict(entry))
+        return day
+
+    def get_time_worked(self) -> datetime.timedelta:
+        """Get time worked.
+        :returns: timedelta
+        """
+        worked = datetime.timedelta()
+        for i in range(0, len(self.entries), 2):
+            if i + 1 >= len(self.entries):
+                break
+            if self.entries[i].type != EntryType.START:
+                raise ValueError("Expected START entry")
+            if self.entries[i + 1].type != EntryType.STOP:
+                raise ValueError("Expected STOP entry")
+            if i + 1 < len(self.entries):
+                worked += self.entries[i + 1].timestamp - self.entries[i].timestamp
+        return worked
+
+    def get_newest_entry(self) -> Entry | None:
+        """Get newest entry.
+        :returns: Entry or None
+        """
+        return self.entries[-1] if self.entries else None
+
+
 class TimeKeeper:
     """Manage time entries."""
 
-    def __init__(self, data_path="data.json"):
+    def __init__(self, data_path="data.json") -> None:
         self.data_path = data_path
-        self.data: dict[str, list[dict]] = {}
+        self.data: dict[str, Day] = {}
         self.current_entry_id = 0
-        self.last_loaded_mtime_ns = None
+        self.last_loaded_mtime_ns: int | None = None
 
     def load_data(self):
         """Load data from file."""
@@ -37,8 +185,9 @@ class TimeKeeper:
             self.last_loaded_mtime_ns = None
             return
         with open(self.data_path, "r", encoding="utf-8") as f:
-            self.data = json.load(f)
-        self.current_entry_id = self._next_entry_id()
+            serialized_data = json.load(f)
+        self.data = {date: Day.from_dict(day, date) for date, day in serialized_data.items()}
+        self.current_entry_id = self._get_next_id()
         self.last_loaded_mtime_ns = os.stat(self.data_path).st_mtime_ns
 
     def reload_if_changed(self) -> bool:
@@ -62,7 +211,7 @@ class TimeKeeper:
     def save_data(self):
         """Save data to file."""
         with open(self.data_path, "w", encoding="utf-8") as f:
-            json.dump(self.data, f, indent=4)
+            json.dump({date: day.to_dict() for date, day in self.data.items()}, f, indent=4)
         self.last_loaded_mtime_ns = os.stat(self.data_path).st_mtime_ns
 
     def add_entry(self, entry_type: EntryType = EntryType.AGNOSTIC):
@@ -70,16 +219,7 @@ class TimeKeeper:
         :param entry_type: Type of entry
         """
         today = datetime.date.today().isoformat()
-        if today not in self.data:
-            self.data[today] = []
-        self.data[today].append(
-            {
-                "type": entry_type.value,
-                "timestamp": datetime.datetime.now(UTC).isoformat(),
-                "id": self.current_entry_id,
-            }
-        )
-        self.current_entry_id += 1
+        self.add_entry_at(today, entry_type)
 
     def add_entry_at(
         self,
@@ -94,236 +234,104 @@ class TimeKeeper:
         :returns: the added entry
         """
         if date not in self.data:
-            self.data[date] = []
-        entry = {
-            "type": entry_type.value,
-            "timestamp": as_utc(timestamp or datetime.datetime.now(UTC)).isoformat(),
-            "id": self.current_entry_id,
-        }
-        self.data[date].append(entry)
+            self.data[date] = Day(date, Attendance.UNDEFINED)
+        entry = Entry(entry_type, timestamp, self.current_entry_id)
+
+        self.data[date].add_entry(entry)
         self.current_entry_id += 1
-        return entry
+        return entry.to_dict()
 
     def edit_entry(
         self,
         entry_id: int,
+        date: str,
         new_type: EntryType | None = None,
         new_timestamp: datetime.datetime | None = None,
-        new_date: str | None = None,
     ) -> None:
         """Edit an existing entry.
+        :param date: Date of the entry
         :param entry_id: ID of the entry
         :param new_type: New type if changing
         :param new_timestamp: New timestamp if changing
-        :param new_date: New date if changing
         """
-        for date, entries in list(self.data.items()):
-            for entry in entries:
-                if int(entry.get("id", -1)) == entry_id:
-                    if new_type is not None:
-                        entry["type"] = new_type.value
-                    if new_timestamp is not None:
-                        entry["timestamp"] = as_utc(new_timestamp).isoformat()
-                    if new_date is not None and new_date != date:
-                        if new_date not in self.data:
-                            self.data[new_date] = []
-                        self.data[new_date].append(entry)
-                        entries.remove(entry)
-                    return
+        if date:
+            entry = self.data.get(date, Day(date, Attendance.UNDEFINED)).get_entry(entry_id)
+            if entry:
+                entry.edit(new_type, new_timestamp)
+        else:
+            for day in self.data.values():
+                entry = day.get_entry(entry_id)
+                if entry:
+                    entry.edit(new_type, new_timestamp)
 
-    def delete_entry(self, entry_id: int):
+    def delete_entry(self, entry_id: int, date: str | None = None):
         """Delete an entry.
         :param entry_id: ID of the entry
-        """
-        for _, entries in self.data.items():
-            for i, entry in enumerate(entries):
-                if int(entry.get("id", -1)) == entry_id:
-                    del entries[i]
-                    return
-
-    def get_first_date(self) -> str | None:
-        """Get first date with entries.
-        :returns: Date string or None
+        :param date: Optional date of the entry TODO: make mandatory
         """
         if not self.data:
-            return None
-        return min(self.data.keys())
+            return
 
-    def get_worked_delta_range(self, start_date: str, end_date: str, daily_target: str) -> str:
-        """Get worked time minus target.
-        :param start_date: Start date
-        :param end_date: End date
-        :param daily_target: Daily target time
-        :returns: Delta as string HH:MM:SS
+        if date:
+            self.data.get(date, Day(date, Attendance.UNDEFINED)).delete_entry(entry_id)
+        else:
+            for day in self.data.values():
+                day.delete_entry(entry_id)
+
+    def get_day(self, date: str) -> Day:
+        """Get a day by date, returns empty if not found
+        :param date: Date string
+        :returns: Day object
         """
-        target_h, target_m, target_s = map(int, daily_target.split(":"))
-        total_target_s = (target_h * 3600 + target_m * 60 + target_s) * self.get_number_of_dates_in_range(start_date, end_date)
-        total_worked_s = self.get_time_worked_range_seconds(start_date, end_date)
-        delta_seconds = total_worked_s - total_target_s
-        sign = "-" if delta_seconds < 0 else ""
-        hours, remainder = divmod(abs(delta_seconds), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        delta = f"{sign}{hours}:{minutes:02}:{seconds:02}"
+        return self.data.get(date, Day(date, Attendance.UNDEFINED))
 
-        return delta
-
-    def get_time_worked_range_seconds(self, start_date: str | datetime.date, end_date: str | datetime.date) -> int:
-        """Seconds worked in range.
-
-        :param start_date: Start date
-        :param end_date: End date
-        :returns: Seconds worked
+    def get_days(self, from_day: str | None = None, limit: int = 14) -> list[Day]:
+        """Get days from from_day, limited by limit
+        :param from_day: start date
+        :param limit: max number of days
+        :returns: list of days
         """
-        total_seconds = 0.0
-        if not isinstance(start_date, datetime.date):
-            start_date = datetime.date.fromisoformat(start_date)
-        if not isinstance(end_date, datetime.date):
-            end_date = datetime.date.fromisoformat(end_date)
-        current_date = start_date
-        while current_date <= end_date:
-            total_seconds += self._get_time_worked_for_date(current_date)
-            current_date += datetime.timedelta(days=1)
-        return int(total_seconds)
+        dates = sorted(self.data.keys())
+        if from_day:
+            dates = [d for d in dates if d >= from_day]
+        return [self.data[d] for d in dates[:limit]]
 
-    def get_number_of_dates_in_range(self, start_date: str | datetime.date, end_date: str | datetime.date) -> int:
-        """Count dates with entries.
-        :param start_date: Start date
-        :param end_date: End date
-        :returns: Count
+    def get_worked_weekly(self, date: str, target: str) -> datetime.timedelta:
+        """Get worked time for the week
+        :param date: any date in the week
+        :param target: daily target
+        :returns: timedelta
         """
-        if not isinstance(start_date, datetime.date):
-            start_date = datetime.date.fromisoformat(start_date)
-        if not isinstance(end_date, datetime.date):
-            end_date = datetime.date.fromisoformat(end_date)
-        count = 0
-        current_date = start_date
-        while current_date <= end_date:
-            if current_date.isoformat() in self.data:
-                count += 1
-            current_date += datetime.timedelta(days=1)
-        return count
+        start = get_week_start(date).isoformat()
+        worked = datetime.timedelta()
+        for d in self.data:
+            if start <= d <= date:
+                worked += self.data[d].get_time_worked()
 
-    def get_time_worked_range(self, start_date: str | datetime.date, end_date: str | datetime.date) -> str:
-        """Worked time as string.
-        :param start_date: Start date
-        :param end_date: End date
-        :returns: Worked time as string
+        target_dt = datetime.timedelta(seconds=duration_to_seconds(target))
+        worked -= target_dt
+
+        return worked
+
+    def get_worked_delta(self, date: str, target: str) -> datetime.timedelta:
+        """Get worked delta for all days up to date
+        :param date: end date
+        :param target: daily target
+        :returns: timedelta
         """
-        total_seconds = self.get_time_worked_range_seconds(start_date, end_date)
-        # return as timedelta string
-        return str(datetime.timedelta(seconds=int(total_seconds)))
-
-    def _get_time_worked_for_date(self, req_date: str | datetime.date) -> float:
-        date_str = req_date.isoformat() if isinstance(req_date, datetime.date) else req_date
-        if date_str not in self.data:
-            return 0.0
-        entries = self.data[date_str]
-        entries = sorted(entries, key=lambda e: e["timestamp"])
-        total_seconds = 0.0
-        for i in range(0, len(entries) - 1, 2):
-            start_time = datetime.datetime.fromisoformat(entries[i]["timestamp"])
-            stop_time = datetime.datetime.fromisoformat(entries[i + 1]["timestamp"])
-            total_seconds += (stop_time - start_time).total_seconds()
-        return total_seconds
-
-    def get_time_worked(self, date: str | datetime.date = datetime.date.today().isoformat()) -> str:
-        """Worked time for date.
-        :param date: Date
-        :returns: Worked time as string
-        """
-        date_str = date.isoformat() if isinstance(date, datetime.date) else date
-        total_seconds = self._get_time_worked_for_date(date_str)
-        return str(datetime.timedelta(seconds=int(total_seconds)))
-
-    def get_last_entry(self, date: str | datetime.date = datetime.date.today().isoformat()) -> dict | None:
-        """Get last entry.
-        :param date: Date
-        :returns: Last entry or None
-        """
-        date_str = date.isoformat() if isinstance(date, datetime.date) else date
-        if date_str not in self.data or not self.data[date_str]:
-            return None
-        self.data[date_str] = sorted(self.data[date_str], key=lambda e: e["timestamp"])
-        return self.data[date_str][-1]
-
-    def _next_entry_id(self) -> int:
-        max_id = -1
-        for entries in self.data.values():
-            for entry in entries:
-                max_id = max(max_id, int(entry.get("id", -1)))
-        return max_id + 1
-
-    def entry_exists(self, entry_id: int) -> bool:
-        """Check if entry exists.
-        :param entry_id: Entry ID
-        :returns: True if exists
-        """
-        for entries in self.data.values():
-            for entry in entries:
-                if int(entry.get("id", -1)) == entry_id:
-                    return True
-        return False
-
-    def parse_entry_type(self, value: str | None) -> EntryType:
-        """Parse entry type.
-        :param value: Type value
-        :returns: EntryType
-        """
-        if value is None:
-            return EntryType.AGNOSTIC
-        try:
-            return EntryType(str(value).lower())
-        except ValueError as e:
-            allowed = ", ".join(item.value for item in EntryType)
-            raise cherrypy.HTTPError(400, f"Invalid type '{value}'. Use one of: {allowed}") from e
-
-    def check_consistency(self) -> list:
-        """Check for suspicious entries.
-        :returns: List of issues
-        """
-        suspicious_entries = []
-        for date, entries in self.data.items():
-            entries = sorted(entries, key=lambda e: e["timestamp"])
-            if not entries:
-                suspicious_entries.append((date, entries, "No entries for this date"))
+        worked = datetime.timedelta()
+        for d in self.data:
+            if d > date:
                 continue
-            for i in range(0, len(entries) - 1, 2):
-                start_time = datetime.datetime.fromisoformat(entries[i]["timestamp"])
-                stop_time = datetime.datetime.fromisoformat(entries[i + 1]["timestamp"])
-                if stop_time < start_time:
-                    suspicious_entries.append(
-                        (
-                            date,
-                            entries,
-                            f"Stop time {stop_time} is before start time {start_time}",
-                        )
-                    )
-            if len(entries) == 1:
-                suspicious_entries.append((date, entries, "Only one entry for this date"))
-            if entries[-1]["type"] == "start":
-                suspicious_entries.append(
-                    (
-                        date,
-                        entries,
-                        "Last entry is a start entry without a corresponding stop",
-                    )
-                )
-        return suspicious_entries
+            worked += self.data[d].get_time_worked()
+        return worked - datetime.timedelta(seconds=duration_to_seconds(target) * len(self.data))
 
-
-def generate_report(timeit_object: TimeKeeper):
-    """Generate report for suspicious entries.
-    :param timeit_object: TimeKeeper instance
-    """
-    suspicious_entries = timeit_object.check_consistency()
-    if suspicious_entries:
-        print("Suspicious entries found:")
-        for entry_date, all_entries, reason in suspicious_entries:
-            print(f"Date: {entry_date}, Reason: {reason}")
-            for entry in all_entries:
-                print(f"  {entry}")
-    else:
-        print("No suspicious entries found.")
+    def _get_next_id(self):
+        max_id = 0
+        for day in self.data.values():
+            for entry in day.entries:
+                max_id = max(max_id, entry.id)
+        return max_id + 1
 
 
 if __name__ == "__main__":
@@ -338,5 +346,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     timeit = TimeKeeper()
     timeit.load_data()
-    if args.check:
-        generate_report(timeit)
+    # if args.check:
+    #     generate_report(timeit)

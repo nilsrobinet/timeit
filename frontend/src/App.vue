@@ -3,7 +3,7 @@
     <nav aria-label="Main navigation">
       <RouterLink class="navbar-item" exact-active-class="navbar-item-active" to="/">Timesheet</RouterLink>
       <RouterLink class="navbar-item" exact-active-class="navbar-item-active" to="/history">History</RouterLink>
-      <RouterLink class="navbar-item" exact-active-class="navbar-item-active" to="/attendance">Attendance</RouterLink>
+      <RouterLink class="navbar-item" exact-active-class="navbar-item-active" to="/stats">Stats</RouterLink>
       <RouterLink class="navbar-item" exact-active-class="navbar-item-active" to="/settings">Settings</RouterLink>
     </nav>
   </header>

@@ -1,7 +1,7 @@
 [project]
 description = "Time tracking app"
 dependencies = [
-    CherryPy==18.10.0
+    "CherryPy==18.10.0"
 ]
 
 [tool.black]

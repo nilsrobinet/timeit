@@ -8,7 +8,7 @@ const router = createRouter({
     routes: [
         { path: '/', component: () => import('./pages/TimesheetPage.vue') },
         { path: '/history', component: () => import('./pages/HistoryPage.vue') },
-        { path: '/attendance', component: () => import('./pages/AttendancePage.vue') },
+        { path: '/stats', component: () => import('./pages/StatsPage.vue') },
         { path: '/settings', component: () => import('./pages/SettingsPage.vue') },
     ]
 })

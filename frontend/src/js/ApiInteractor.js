@@ -7,6 +7,11 @@ class ApiInteractor {
         return `/api/${path}${query ? `?${query}` : ''}`
     }
 
+    async getDay() {
+        const day = await fetch(this.buildUrl('day')).then(r => r.json())
+        return day
+    }
+
     /**
      * Get a summary for the current day from the backend API
      * @returns {Object} An object containing the summary for the current day, including date, worked, target, day, weekly, and total durations
@@ -31,22 +36,11 @@ class ApiInteractor {
     }
 
     /**
-     * Get all entries for a specific day from the backend API
-     * @param {String} date - The date in YYYY-MM-DD format
-     * @returns {TimeKeepingEntry[]} An array of TimeKeepingEntry objects for the specified date
-     */
-    async getEntries(date = formatToday()) {
-         const entries = await fetch(this.buildUrl('entries', { date }))
-            .then(response => response.json()).then(data => data.entries)
-        return entries.map(entry => new TimeKeepingEntry(entry)).sort((a, b) => a.date - b.date)
-    }
-
-    /**
      * Delete an entry by its ID from the backend API
      * @param {Number} id 
      */
     async deleteEntry(id) {
-         await fetch(this.buildUrl(`entries/${encodeURIComponent(id)}`), {
+         await fetch(this.buildUrl(`day/${encodeURIComponent(id)}`), {
             method: 'DELETE'
         })
     }
@@ -56,7 +50,7 @@ class ApiInteractor {
      * @param {TimeKeepingEntry} entry 
      */
     async addEntry(date, start) {
-         await fetch(this.buildUrl('entries'), {
+         await fetch(this.buildUrl('day'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -70,7 +64,7 @@ class ApiInteractor {
      * @param {TimeKeepingEntry} entry 
      */
     async editEntry(entry) {
-        await fetch(this.buildUrl(`entries/${encodeURIComponent(entry.id)}`), {
+        await fetch(this.buildUrl(`day/${encodeURIComponent(entry.id)}`), {
            method: 'PATCH',
            headers: {
                'Content-Type': 'application/json'
@@ -89,18 +83,6 @@ class ApiInteractor {
         const config = await fetch(this.buildUrl('config'))
             .then(response => response.json()).then(data => data)
         return config
-    }
-
-    async getAttendance() {
-        const attendance = await fetch(this.buildUrl('attendance'))
-            .then(res => res.json())
-        return attendance
-    }
-
-    async addAttendance(status, date) {
-        await fetch(this.buildUrl('attendance', { status, date }), {
-            method: 'POST',
-        })
     }
 }
 
