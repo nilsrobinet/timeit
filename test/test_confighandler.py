@@ -14,6 +14,7 @@ def test_config_handler():
     assert handler.get_daily_target() is not None
     assert handler.get_persistence() is not None
     assert handler.get_timekeeping_path() is not None
-    assert handler.get_daily_target() == "1:2:0"
+    assert handler.get_daily_target() == "01:02:00"
     assert handler.get_persistence() == "json"
     assert handler.get_timekeeping_path() == "data.json"
+    assert handler.get_number_of_workdays() == 5

@@ -18,7 +18,8 @@ const summary = ref({
     target: new FDuration('+8:00:00'),
     day: new FDuration('+0:00:00'),
     weekly: new FDuration('+0:00:00'),
-    total: new FDuration('+0:00:00')
+    total: new FDuration('+0:00:00'),
+    avg_attendance: 0.0
 })
 const isStarted = ref(false)
 function refreshSummary() {

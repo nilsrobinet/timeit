@@ -1,8 +1,10 @@
 """Utility functions for time calculations."""
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import cherrypy
+
+DAY_MAPPING = {0: "MON", 1: "TUE", 2: "WED", 3: "THU", 4: "FRI", 5: "SAT", 6: "SUN"}
 
 
 def get_week_start(this_date: date | str) -> date:
@@ -88,3 +90,27 @@ def as_utc(t: datetime) -> datetime:
     if t.tzinfo is None:
         return t.replace(tzinfo=UTC)
     return t.astimezone(UTC)
+
+
+def get_workday_dates(workdays: list[str], start: str | date, end: date | str) -> list:
+    """
+    Get dates for workdays between start and end.
+    :param workdays: List of workday offsets.
+    :param start: Start date.
+    :param end: End date.
+    :returns: List of dates.
+    """
+
+    if isinstance(start, str):
+        start = date.fromisoformat(start)
+    if isinstance(end, str):
+        end = date.fromisoformat(end)
+    delta = (end - start).days
+
+    result = []
+    for d in range(delta + 1):
+        current = start + timedelta(days=d)
+        if DAY_MAPPING[current.weekday()] in [w.upper() for w in workdays]:
+            result.append(current)
+
+    return result

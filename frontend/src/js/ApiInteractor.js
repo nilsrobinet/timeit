@@ -42,7 +42,8 @@ class ApiInteractor {
         const total = new FDuration(summary.total_delta)
         const day = worked.delta(target)
         const lastEntry = summary.last_entry ? new TimeKeepingEntry(summary.last_entry) : null
-        return { dateObj, worked, target, day, weekly, total, lastEntry }
+        const avg_attendance = summary.avg_attendance
+        return { dateObj, worked, target, day, weekly, total, lastEntry, avg_attendance }
     }
 
     /**
@@ -95,6 +96,14 @@ class ApiInteractor {
         const config = await fetch(this.buildUrl('config'))
             .then(response => response.json()).then(data => data)
         return config
+    }
+
+    async getErrorList() {
+        return fetch(this.buildUrl('report')).then(r => r.json())
+    }
+
+    async getAverageAttendance() {
+        return fetch(this.buildUrl('days/attendance/avg')).then(r => r.json())
     }
 }
 

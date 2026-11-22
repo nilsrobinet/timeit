@@ -4,9 +4,13 @@ import datetime
 import enum
 import json
 import os
+import sys
 from typing import TypeVar
 
-from src.time_util import as_utc, get_week_start, duration_to_seconds
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src.time_util import as_utc, get_week_start, duration_to_seconds, get_workday_dates
 
 UTC = datetime.UTC
 EnumT = TypeVar("EnumT", bound=enum.Enum)
@@ -101,6 +105,7 @@ class Day:
         self.entries: list[Entry] = []
 
     def set_attendance(self, status: str | Attendance):
+        """Set attendance."""
         if isinstance(status, Attendance):
             self.attendance = status
         else:
@@ -185,6 +190,13 @@ class Day:
         :returns: Entry or None
         """
         return self.entries[-1] if self.entries else None
+
+    def check_consistency(self):
+        """Check day consistency."""
+        self.entries.sort(key=lambda e: e.timestamp)
+        for i in range(1, len(self.entries)):
+            if self.entries[i].type == self.entries[i - 1].type:
+                raise ValueError("Inconsistent entries")
 
 
 class TimeKeeper:
@@ -304,6 +316,15 @@ class TimeKeeper:
         """
         return self.data.get(date, Day(date, Attendance.UNDEFINED))
 
+    def get_first_day(self) -> Day:
+        return self.data[min(self.data.keys())] if self.data else Day("", Attendance.UNDEFINED)
+
+    def get_weighted_avg_attendance(self, config, date: str) -> float:
+        total = self.total_attendance(Attendance.UNDEFINED, date)
+        vacation = self.total_attendance(Attendance.VACATION, date)
+        workdays = len(get_workday_dates(config.get_workdays(), self.get_first_day().get_date(), date))
+        return (total + (vacation / 2)) / workdays if workdays else 0
+
     def get_days(self, from_day: str | None = None, limit: int = 14) -> list[Day]:
         """Get days from from_day, limited by limit
         :param from_day: start date
@@ -339,11 +360,10 @@ class TimeKeeper:
         :returns: timedelta
         """
         worked = datetime.timedelta()
-        for d in self.data:
-            if d > date:
-                continue
+        days = [d for d in self.data if d <= date]
+        for d in days:
             worked += self.data[d].get_time_worked()
-        return worked - datetime.timedelta(seconds=duration_to_seconds(target) * len(self.data))
+        return worked - datetime.timedelta(seconds=duration_to_seconds(target) * len(days))
 
     def _get_next_id(self):
         max_id = 0
@@ -351,6 +371,37 @@ class TimeKeeper:
             for entry in day.entries:
                 max_id = max(max_id, entry.id)
         return max_id + 1
+
+    def total_attendance(self, attandance_type: Attendance, date: str) -> int:
+        """Count attendance of type up to date
+        :param attandance_type: type to count
+        :param date: up to this date
+        :returns: count
+        """
+        days = [d for d in self.data if d <= date]
+        return sum(1 for d in days if self.data[d].attendance == attandance_type)
+
+    def generate_report(self, isLocal: bool = False) -> list[str]:  # pylint: disable=missing-param-doc,missing-return-doc
+        """Generate report containing inconsistent days, missing attendance and other issues"""
+        sorted_data = sorted(self.data)
+        errors: list[str] = []
+        for d in sorted_data:
+            try:
+                self.data[d].check_consistency()
+            except ValueError:
+                errors.append(f"Inconsistent entries {d}")
+            if self.data[d].attendance is None or self.data[d].attendance == Attendance.UNDEFINED and d <= datetime.date.today().isoformat():
+                errors.append(f"Missing attendance {d}")
+
+            workdays = ["MON", "TUE", "WED", "THU", "FRI"]
+        wdays: list[datetime.date] = get_workday_dates(workdays, sorted_data[0], sorted_data[-1])
+
+        for wd in wdays:
+            if wd.isoformat() not in self.data:
+                errors.append(f"Missing workday {wd}")
+        if isLocal:
+            print(errors)
+        return errors
 
 
 if __name__ == "__main__":
@@ -365,5 +416,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     timeit = TimeKeeper()
     timeit.load_data()
-    # if args.check:
-    #     generate_report(timeit)
+    if args.check:
+        timeit.generate_report(isLocal=True)

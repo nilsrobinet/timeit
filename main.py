@@ -6,8 +6,8 @@ import json
 from typing import Any
 
 import cherrypy
-from src.time_keeper import TimeKeeper, EntryType
-from src.time_util import duration_delta, parse_iso_datetime, seconds_to_duration
+from src.time_keeper import Attendance, TimeKeeper, EntryType
+from src.time_util import duration_delta, parse_iso_datetime, seconds_to_duration, get_workday_dates
 from src.config_handler import ConfigHandler
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -63,6 +63,13 @@ class TimeIt(object):
                 response = self._days_get(params)
             elif len(vpath) == 2 and vpath[1] == "summary":
                 response = self._days_summary_get(params)
+            elif len(vpath) == 3 and vpath[1] == "attendance":
+                if vpath[2] == "avg":
+                    response = 0
+                if vpath[2] == "total":
+                    response = self.time_keeper.total_attendance(Attendance(params.get("type")), params.get("date", datetime.date.today().isoformat()))
+        elif resource == "report" and method == "GET":
+            response = self._report_get(params)
         elif resource == "config" and method == "GET":
             response = self.config.get_config()
         else:
@@ -186,7 +193,22 @@ class TimeIt(object):
             "weekly_delta": seconds_to_duration(int(self.time_keeper.get_worked_weekly(date, target).total_seconds())),
             "total_delta": seconds_to_duration(int(self.time_keeper.get_worked_delta(date, target).total_seconds())),
             "last_entry": last_entry.to_dict() if last_entry else None,
+            "avg_attendance": self.time_keeper.get_weighted_avg_attendance(self.config, date),
         }
+
+    def _days_attendance_total_get(self, params):
+        return {self.time_keeper.total_attendance(Attendance(params.get("type")), params.get("date", datetime.date.today().isoformat()))}
+
+    def _days_attendance_avg_get(self, params):
+        total = self.time_keeper.total_attendance(Attendance(params.get("type")), params.get("date", datetime.date.today().isoformat()))
+        workdays = len(get_workday_dates(self.config.get_workdays(), self.time_keeper.get_first_day().get_date(), params.get("date", datetime.date.today().isoformat())))
+        return {total / workdays if workdays else 0}
+
+    def _days_attendance_target_get(self, params):
+        return {self.config.get_daily_target()}
+
+    def _report_get(self, params):
+        return self.time_keeper.generate_report(isLocal=True)
 
     def _read_json_body(self, required=False):
         raw_body = cherrypy.request.body.read()

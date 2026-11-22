@@ -46,6 +46,10 @@ updateCurrentWorked(props.summary.worked)
                 <span>Total balance</span>
                 <strong>{{ summary.total.toString() }}</strong>
             </div>
+            <div id="avg-atten" class="stat-item">
+                <span>office attendance</span>
+                <strong>{{ Math.round(summary.avg_attendance * 100) / 100 }}</strong>
+            </div>
         </div>
     </section>
 </template>

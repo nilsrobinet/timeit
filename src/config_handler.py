@@ -47,3 +47,20 @@ class ConfigHandler:
         if self.config is None:
             raise RuntimeError("Configuration has not been loaded.")
         return self.config
+
+    def get_attendance_target(self) -> float:
+        """Get attendance target as float.
+        :returns: target as float
+        """
+        return self._loaded_config().get("attendance", {}).get("target")
+
+    def get_number_of_workdays(self) -> int:
+        """Get number of workdays.
+        :returns: number of workdays
+        """
+        print(self._loaded_config())
+        return len(self._loaded_config().get("attendance", {}).get("workdays", []))
+
+    def get_workdays(self) -> list:
+        """Get workdays as list of strings."""
+        return self._loaded_config().get("attendance", {}).get("workdays", [])
