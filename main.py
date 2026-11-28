@@ -226,6 +226,7 @@ class TimeIt(object):
     def _data_post(self, _params):
         body = self._read_json_body(required=True)
         self.time_keeper.from_dict(body)
+        self.time_keeper.save_data()
         return {"ok": True}
 
     def _read_json_body(self, required=False):

@@ -67,9 +67,6 @@ update()
         <form v-if="config" class="settings-form">
             <div class="settings-field">
                 <label for="daily-target">Daily target</label>
-                <!-- <input id="daily-target" class="form-control" type="text" placeholder="08:00" required
-                    pattern="[0-9]{1,3}:[0-5][0-9]" title="Enter hours and minutes, e.g. 08:00"
-                    v-model="config.work.target" /> -->
                 <TimePicker id="daily-target" class="form-control" v-model="config.work.target" :show-seconds="false"
                     :disabled="!userwritable" />
             </div>

@@ -178,9 +178,9 @@ class Day:
             if i + 1 >= len(self.entries):
                 break
             if self.entries[i].type != EntryType.START:
-                raise ValueError("Expected START entry")
+                raise ValueError(f"Expected START entry got: {self.entries[i].to_dict()}")
             if self.entries[i + 1].type != EntryType.STOP:
-                raise ValueError("Expected STOP entry")
+                raise ValueError(f"Expected STOP entry got: {self.entries[i].to_dict()}")
             if i + 1 < len(self.entries):
                 worked += self.entries[i + 1].timestamp - self.entries[i].timestamp
         return worked
@@ -411,6 +411,7 @@ class TimeKeeper:
         return {d: self.data[d].to_dict() for d in self.data}
 
     def from_dict(self, data):
+        """Load data from dict"""
         for d in data:
             self.data[d] = Day.from_dict(data[d])
 
