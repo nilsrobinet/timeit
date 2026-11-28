@@ -1,0 +1,13 @@
+[Unit]
+Description=Timeit service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/webapps/timeit
+ExecStart=python3 main.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
