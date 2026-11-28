@@ -143,7 +143,7 @@ class TimeIt(object):
 
         history = [d.to_dict() for d in self.time_keeper.get_days(from_day, limit)]
 
-        return {"history": history, "full_length": len(self.time_keeper.data)}
+        return {"history": history, "full_length": len(self.time_keeper.data) - 1}
 
     @route("days/summary", "GET")
     def _days_summary_get(self, params):
@@ -162,7 +162,7 @@ class TimeIt(object):
             }
             for d in self.time_keeper.get_days(from_day, limit)
         ]
-        return {"history": history, "full_length": len(self.time_keeper.data)}
+        return {"history": history, "full_length": len(self.time_keeper.data) - 1}
 
     @route("days/attendance/avg", "GET")
     def _days_attendance_avg_get(self, params):
