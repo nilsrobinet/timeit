@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/webapps/timeit
-ExecStart=python3 main.py
+ExecStart=/opt/webapps/timeit/venv/bin/python /opt/webapps/timeit/main.py
 Restart=on-failure
 RestartSec=3
 
