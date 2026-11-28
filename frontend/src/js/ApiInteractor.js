@@ -98,12 +98,32 @@ class ApiInteractor {
         return config
     }
 
+    async postConfig(data) {
+        await fetch(this.buildUrl('config'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+    }
+
     async getErrorList() {
         return fetch(this.buildUrl('report')).then(r => r.json())
     }
 
     async getAverageAttendance() {
         return fetch(this.buildUrl('days/attendance/avg')).then(r => r.json())
+    }
+
+    async getData() {
+        return fetch(this.buildUrl('data')).then(r => r.json())
+    }
+
+    async postData(data) {
+        await fetch(this.buildUrl('data'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
     }
 }
 

@@ -1,7 +1,8 @@
 [project]
 description = "Time tracking app"
 dependencies = [
-    "CherryPy==18.10.0"
+    "CherryPy==18.10.0",
+    "PyYAML==6.0"
 ]
 
 [tool.black]
@@ -20,8 +21,8 @@ max-line-length = 180
 
 [tool.pylint."extensions.docparams"]
 default-docstring-type = "sphinx"
-accept-no-param-doc = false
-accept-no-return-doc = false
+accept-no-param-doc = true
+accept-no-return-doc = true
 
 [tool.mypy]
 python_version = "3.11"

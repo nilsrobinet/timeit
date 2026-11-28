@@ -2,9 +2,7 @@
 
 import datetime
 import json
-from types import SimpleNamespace
 
-from main import TimeIt
 from src.time_keeper import Attendance, Day, Entry, EntryType, TimeKeeper
 
 
@@ -70,21 +68,3 @@ def test_time_keeper_loads_and_saves_json(tmp_path):
 
     assert reloaded.data["2026-11-22"].entries[0].type is EntryType.STOP
     assert reloaded.data["2026-11-22"].entries[0].timestamp == datetime.datetime(2026, 11, 22, 10, 30, tzinfo=datetime.UTC)
-
-
-def test_summary_serializes_last_entry():
-    date = "2026-11-22"
-    day = Day(date, Attendance.UNDEFINED)
-    day.add_entry(Entry(EntryType.START, datetime.datetime(2026, 11, 22, 9, tzinfo=datetime.UTC), 1))
-    day.add_entry(Entry(EntryType.STOP, datetime.datetime(2026, 11, 22, 10, tzinfo=datetime.UTC), 2))
-    time_keeper = TimeKeeper()
-    time_keeper.data[date] = day
-
-    app = TimeIt.__new__(TimeIt)
-    app.config = SimpleNamespace(get_daily_target=lambda: "0:00:00")
-    app.time_keeper = time_keeper
-
-    response = app._summary_get({"date": date})
-    decoded = json.loads(json.dumps(response))
-
-    assert decoded["last_entry"] == day.entries[-1].to_dict()

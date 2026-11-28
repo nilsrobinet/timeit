@@ -8,7 +8,7 @@ from src.config_handler import ConfigHandler
 def test_config_handler():
     """Test config handler"""
 
-    config_path = os.path.join(os.path.dirname(__file__), "test_config.toml")
+    config_path = os.path.join(os.path.dirname(__file__), "test_config.yaml")
     handler = ConfigHandler(config_path)
     handler.load()
     assert handler.get_daily_target() is not None

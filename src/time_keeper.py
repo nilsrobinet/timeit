@@ -317,13 +317,16 @@ class TimeKeeper:
         return self.data.get(date, Day(date, Attendance.UNDEFINED))
 
     def get_first_day(self) -> Day:
+        """Get first day in data"""
         return self.data[min(self.data.keys())] if self.data else Day("", Attendance.UNDEFINED)
 
     def get_weighted_avg_attendance(self, config, date: str) -> float:
+        """Get weighted avg attendance with vacation and sick days counting for half"""
         total = self.total_attendance(Attendance.UNDEFINED, date)
         vacation = self.total_attendance(Attendance.VACATION, date)
+        sick = self.total_attendance(Attendance.SICK, date)
         workdays = len(get_workday_dates(config.get_workdays(), self.get_first_day().get_date(), date))
-        return (total + (vacation / 2)) / workdays if workdays else 0
+        return (total + (vacation / 2) + (sick / 2)) / workdays if workdays else 0
 
     def get_days(self, from_day: str | None = None, limit: int = 14) -> list[Day]:
         """Get days from from_day, limited by limit
@@ -402,6 +405,14 @@ class TimeKeeper:
         if isLocal:
             print(errors)
         return errors
+
+    def to_dict(self):
+        """Export data as dict"""
+        return {d: self.data[d].to_dict() for d in self.data}
+
+    def from_dict(self, data):
+        for d in data:
+            self.data[d] = Day.from_dict(data[d])
 
 
 if __name__ == "__main__":

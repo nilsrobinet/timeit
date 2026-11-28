@@ -28,7 +28,7 @@ class TimeIt(object):
     """TimeIt cherrypy web app."""
 
     def __init__(self):
-        self.config = ConfigHandler(os.path.join(APP_ROOT, "config/userconf.toml"))
+        self.config = ConfigHandler(os.path.join(APP_ROOT, "config/userconf.yaml"))
         self.config.load()
         self.time_keeper = TimeKeeper(os.path.join(APP_ROOT, self.config.get_timekeeping_path()))
         self.time_keeper.load_data()
@@ -208,6 +208,25 @@ class TimeIt(object):
     @route("config", "GET")
     def _config_get(self, _params):
         return self.config.get_config()
+
+    @route("config", "POST")
+    def _config_target_post(self, _params):
+        body = self._read_json_body(required=True)
+        err = self.config.set_config(body)
+        if err:
+            raise cherrypy.HTTPError(400, str(err))
+        return {"ok": True}
+
+    @route("data", "GET")
+    def _data_get(self, _params):
+        """Export data"""
+        return self.time_keeper.to_dict()
+
+    @route("data", "POST")
+    def _data_post(self, _params):
+        body = self._read_json_body(required=True)
+        self.time_keeper.from_dict(body)
+        return {"ok": True}
 
     def _read_json_body(self, required=False):
         raw_body = cherrypy.request.body.read()

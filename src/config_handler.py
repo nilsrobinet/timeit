@@ -1,7 +1,11 @@
 """Config handler."""
 
-import tomllib
+import os
+import re
+import datetime
 from typing import Any
+
+import yaml
 
 
 # TODO: add config validation
@@ -16,7 +20,7 @@ class ConfigHandler:
         """Get daily target as string.
         :returns: work target as string H:MM:SS
         """
-        h, m = map(int, self._loaded_config().get("work", {}).get("target"))
+        h, m = map(int, self._loaded_config().get("work", {}).get("target").split(":"))
         target = f"{h:02d}:{m:02d}:00"
         return target
 
@@ -34,19 +38,15 @@ class ConfigHandler:
 
     def load(self) -> None:
         """Load config."""
-        with open(self.config_path, "rb") as f:
-            self.config = tomllib.load(f)
+        with open(self.config_path, "r", encoding="utf-8") as f:
+            self.config = yaml.safe_load(f)
+        print(f"Loaded {self.config}")
 
     def get_config(self) -> dict[str, Any]:
         """Get full config.
         :returns: full config
         """
         return self._loaded_config()
-
-    def _loaded_config(self) -> dict[str, Any]:
-        if self.config is None:
-            raise RuntimeError("Configuration has not been loaded.")
-        return self.config
 
     def get_attendance_target(self) -> float:
         """Get attendance target as float.
@@ -58,9 +58,40 @@ class ConfigHandler:
         """Get number of workdays.
         :returns: number of workdays
         """
-        print(self._loaded_config())
         return len(self._loaded_config().get("attendance", {}).get("workdays", []))
 
     def get_workdays(self) -> list:
         """Get workdays as list of strings."""
         return self._loaded_config().get("attendance", {}).get("workdays", [])
+
+    def set_config(self, new_config: dict) -> ValueError | None:
+        """Set values from new config. Returns ValueError if invalid."""
+        if self.config is None:
+            raise RuntimeError("Config not loaded.")
+        for k, v in new_config.items():
+            print(f"Updating {k} with {v}")
+            if k not in self.config:
+                return ValueError(f"Invalid key: {k}")
+            self.config[k] = v
+        self._persist()
+        return None
+
+    def _loaded_config(self) -> dict[str, Any]:
+        if self.config is None:
+            raise RuntimeError("Configuration has not been loaded.")
+        return self.config
+
+    def _persist(self):
+        if self._loaded_config().get("userwritable") is False:
+            raise RuntimeError("Config is not user writable.")
+        today = datetime.date.today().strftime("%Y-%m-%d")
+        # backup old config
+        old = self.config_path.replace(".yaml", f".{today}.yaml")
+        os.rename(self.config_path, old)
+        # write new config
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(self.config, f)
+        # cleanup old backups if needed
+        backups = sorted([f for f in os.listdir(os.path.dirname(self.config_path)) if re.match(r".*\.\d{4}-\d{2}-\d{2}\.yaml", f)])[:-5]
+        for bs in backups:
+            os.remove(os.path.join(os.path.dirname(self.config_path), bs))
