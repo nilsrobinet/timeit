@@ -1,10 +1,9 @@
 #!/bin/bash
 
 # Install script for installing and building the app
-# TODO: remove build once CI/CD is set up
 
-if [ "$EUID" -eq 0 ]; then
-    echo "Run as unprivileged user"
+if [ "$EUID" -ne 0 ]; then
+    echo "Run as root!"
     exit 1
 fi
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -14,6 +13,7 @@ echo "Running from $ROOT_DIR"
 
 # Step 1: build  --------------------------------
 cd $ROOT_DIR/frontend
+npm install
 npm run build
 
 EXIT_CODE=$?
@@ -39,6 +39,12 @@ cp $ROOT_DIR/requirements.txt $APPDIR/
 
 echo "Setting up virtualenv..."
 python3 -m venv $APPDIR/venv
+
+EXIT_CODE=$?
+if [ $EXIT_CODE -ne 0 ]; then
+    echo "Could not install venv. $EXIT_CODE exiting."
+    exit $EXIT_CODE
+fi
 
 echo "Activating venv..."
 source $APPDIR/venv/bin/activate
