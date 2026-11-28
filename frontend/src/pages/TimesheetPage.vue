@@ -8,10 +8,12 @@ import DayEntryList from '../components/EntryList.vue'
 import EditForm from '../components/EditForm.vue'
 import AttendanceForm from '../components/AttendanceForm.vue'
 
-const currentDateStr = ref(formatToday())
-
 const api = new ApiInteractor()
 
+const currentDateStr = ref(formatToday())
+const isStarted = ref(false)
+const showEditForm = ref(false)
+const editingEntry = ref(null)
 const summary = ref({
     date: new FDate(new Date()),
     worked: new FDuration('+0:00:00'),
@@ -21,24 +23,22 @@ const summary = ref({
     total: new FDuration('+0:00:00'),
     avg_attendance: 0.0
 })
-const isStarted = ref(false)
+
 function refreshSummary() {
     api.getSummary(currentDateStr.value).then(data => {
         summary.value = data
         isStarted.value = data.lastEntry?.type === 'start'
     })
 }
-refreshSummary()
 
 const thisDayEntries = ref([])
 const attendance = ref('undefined')
 function refreshEntries() {
-    api.getDay().then(data => {
+    api.getDay(currentDateStr.value).then(data => {
         thisDayEntries.value = data.entries.map(entry => new TimeKeepingEntry(entry))
         attendance.value = data.attendance
     })
 }
-refreshEntries()
 
 function deleteEntry(id) {
     api.deleteEntry(id, currentDateStr.value).then(() => {
@@ -46,20 +46,21 @@ function deleteEntry(id) {
         refreshSummary()
     })
 }
+
 function editEntry(entry) {
     showEditForm.value = true
     editingEntry.value = entry
 }
+
 function checkInOut() {
     let type = isStarted.value ? 'stop' : 'start'
-    api.addEntry(currentDateStr.value, type).then(() => {
+    let timestamp = currentDateStr.value == formatToday() ? null : currentDateStr.value + 'T00:00:00'
+    console.log(timestamp)
+    api.addEntry(currentDateStr.value, type, timestamp).then(() => {
         refreshSummary()
         refreshEntries()
     })
 }
-
-const showEditForm = ref(false)
-const editingEntry = ref(null)
 
 function saveEntry(entry) {
     showEditForm.value = false
@@ -80,6 +81,9 @@ function getButtonText() {
     }
     return isStarted.value ? 'Check Out' : 'Check In'
 }
+
+refreshSummary()
+refreshEntries()
 
 </script>
 

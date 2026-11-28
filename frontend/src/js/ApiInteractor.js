@@ -7,8 +7,8 @@ class ApiInteractor {
         return `/api/${path}${query ? `?${query}` : ''}`
     }
 
-    async getDay() {
-        const day = await fetch(this.buildUrl('day')).then(r => r.json())
+    async getDay(date) {
+        const day = await fetch(this.buildUrl('day', { date })).then(r => r.json())
         return day
     }
 
@@ -60,13 +60,13 @@ class ApiInteractor {
      * Add a new entry to the backend API
      * @param {TimeKeepingEntry} entry 
      */
-    async addEntry(date, start) {
+    async addEntry(date, start, timestamp) {
          await fetch(this.buildUrl('day/entry'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ 'date': date, 'type': start })
+            body: JSON.stringify({ 'date': date, 'type': start, 'timestamp': timestamp })
         })
     }
 

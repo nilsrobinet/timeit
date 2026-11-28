@@ -10,7 +10,8 @@ const statusLabels = {
     remote: 'Remote',
     sick: 'Sick',
     vacation: 'Vacation',
-    undefined: 'Not set'
+    undefined: 'Not set',
+    public_holiday: 'Public holiday'
 }
 const displayStatus = computed(() => statusLabels[modelValue.value] ?? modelValue.value ?? 'Not set')
 
@@ -18,15 +19,10 @@ const displayStatus = computed(() => statusLabels[modelValue.value] ?? modelValu
 
 
 <template>
-    <button
-        type="button"
-        class="attendance-value"
-        :class="{ invalid: modelValue === 'undefined' }"
+    <button type="button" class="attendance-value" :class="{ invalid: modelValue === 'undefined' }"
         :aria-expanded="showDialog"
         :aria-label="modelValue === 'undefined' ? 'Attendance not set; edit attendance' : 'Edit attendance: ' + displayStatus"
-        aria-haspopup="dialog"
-        @click="showDialog = true"
-    >
+        aria-haspopup="dialog" @click="showDialog = true">
         {{ displayStatus }}
     </button>
     <div v-if="showDialog" class="form-backdrop" @click.self="showDialog = false; emit('updated')">
@@ -38,6 +34,7 @@ const displayStatus = computed(() => statusLabels[modelValue.value] ?? modelValu
                 <option value="remote">Remote</option>
                 <option value="sick">Sick</option>
                 <option value="vacation">Vacation</option>
+                <option value="public_holiday">Public holiday</option>
                 <option value="undefined" disabled>Not set</option>
             </select>
             <button class="button button-accent" @click="showDialog = false; emit('updated')">Save</button>

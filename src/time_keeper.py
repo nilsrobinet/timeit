@@ -23,6 +23,7 @@ class Attendance(enum.Enum):
     REMOTE = "remote"
     VACATION = "vacation"
     SICK = "sick"
+    PUBLIC_HOLIDAY = "public_holiday"
     UNDEFINED = "undefined"
 
 
@@ -309,12 +310,24 @@ class TimeKeeper:
             for day in self.data.values():
                 day.delete_entry(entry_id)
 
+    def add_attendance(self, date: str, status: Attendance):
+        """Add attendance for a day"""
+        print("Adding attendance", date, status)
+        if date not in self.data:
+            self.data[date] = Day(date, status)
+        else:
+            self.data[date].set_attendance(status)
+
     def get_day(self, date: str) -> Day:
         """Get a day by date, returns empty if not found
         :param date: Date string
         :returns: Day object
         """
         return self.data.get(date, Day(date, Attendance.UNDEFINED))
+
+    def is_in_data(self, date: str) -> bool:
+        """Check if date is in data"""
+        return date in self.data
 
     def get_first_day(self) -> Day:
         """Get first day in data"""

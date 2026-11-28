@@ -78,9 +78,8 @@ class TimeIt(object):
     def _day_attendance_post(self, _param):
         payload = self._read_json_body(required=True)
         date = payload.get("date") or datetime.date.today().isoformat()
-        status = payload.get("status")
-        print(date, status)
-        self.time_keeper.get_day(date).set_attendance(status)
+        status = Attendance(payload.get("status"))
+        self.time_keeper.add_attendance(date=date, status=status)
         self.time_keeper.save_data()
         return {"ok": True}
 
