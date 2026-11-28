@@ -101,6 +101,11 @@ def get_workday_dates(workdays: list[str], start: str | date, end: date | str) -
     :returns: List of dates.
     """
 
+    if not workdays:
+        return []
+    if not start or not end:
+        return []
+
     if isinstance(start, str):
         start = date.fromisoformat(start)
     if isinstance(end, str):
