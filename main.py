@@ -10,6 +10,8 @@ from src.time_keeper import Attendance, TimeKeeper, EntryType
 from src.time_util import duration_delta, parse_iso_datetime, seconds_to_duration, get_workday_dates
 from src.config_handler import ConfigHandler
 
+from src.json_storage import JsonStorage
+
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 ROUTES: dict[tuple[str, str], Callable] = {}
@@ -27,11 +29,16 @@ def route(path: str, method: str):
 class TimeIt(object):
     """TimeIt cherrypy web app."""
 
-    def __init__(self, config_handler):
+    def __init__(self, config_handler: ConfigHandler):
         self.config = config_handler
-        self.config.load()
-        self.time_keeper = TimeKeeper(os.path.join(APP_ROOT, self.config.get_timekeeping_path()))
-        self.time_keeper.load_data()
+
+        if self.config.get_persistence() == "json":
+            persistance = JsonStorage(os.path.join(APP_ROOT, self.config.get_timekeeping_path()))
+        else:
+            raise ValueError(f"Unsupported persistence {self.config.get_persistence()}")
+
+        self.time_keeper = TimeKeeper(persistance)
+        # persistance.load()
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -41,7 +48,6 @@ class TimeIt(object):
         :param params: Query parameters for the request.
         :returns: The API response payload.
         """
-        self.time_keeper.reload_if_changed()
 
         path = "/".join(vpath)
         method = cherrypy.request.method.upper()
@@ -54,7 +60,7 @@ class TimeIt(object):
 
     @route("routes", "GET")
     def _routes_get(self, _params):
-        return [{"route": t[0], "method": t[1]} for t in ROUTES.keys()]
+        return [{"route": t[0], "method": t[1]} for t in ROUTES]
 
     @route("day", "GET")
     def _day_get(self, params):
@@ -70,7 +76,6 @@ class TimeIt(object):
         timestamp = parse_iso_datetime(payload.get("timestamp")) if payload.get("timestamp") else None
 
         entry = self.time_keeper.add_entry_at(date=date, entry_type=entry_type, timestamp=timestamp)
-        self.time_keeper.save_data()
         cherrypy.response.status = 201
         return {"ok": True, "entry": entry}
 
@@ -80,7 +85,6 @@ class TimeIt(object):
         date = payload.get("date") or datetime.date.today().isoformat()
         status = Attendance(payload.get("status"))
         self.time_keeper.add_attendance(date=date, status=status)
-        self.time_keeper.save_data()
         return {"ok": True}
 
     @route("day", "PATCH")
@@ -101,17 +105,19 @@ class TimeIt(object):
             new_timestamp = parse_iso_datetime(payload.get("timestamp"))
 
         date = payload.get("date")
+        if not date:
+            raise cherrypy.HTTPError(400, "Date required")
 
-        if not self.time_keeper.get_day(date).get_entry(entry_id):
-            raise cherrypy.HTTPError(404, "Entry not found")
-
-        self.time_keeper.edit_entry(
+        day = self.time_keeper.edit_entry(
             date=date,
             entry_id=entry_id,
             new_type=new_type,
             new_timestamp=new_timestamp,
         )
-        self.time_keeper.save_data()
+
+        if not day:
+            raise cherrypy.HTTPError(404, "Entry not found")
+
         return {"ok": True}
 
     @route("day", "DELETE")
@@ -123,12 +129,10 @@ class TimeIt(object):
         except (TypeError, ValueError) as e:
             raise cherrypy.HTTPError(400, "Entry id must be an integer") from e
 
-        day = self.time_keeper.get_day(date)
-        if not day.get_entry(entry_id):
-            raise cherrypy.HTTPError(404, f"Entry not found {date} {day.to_dict()} id {entry_id}")
+        day = self.time_keeper.delete_entry(date, entry_id)
+        if not day:
+            raise cherrypy.HTTPError(404, "Entry not found")
 
-        day.delete_entry(entry_id)
-        self.time_keeper.save_data()
         cherrypy.response.status = 204
         return None
 
@@ -142,7 +146,7 @@ class TimeIt(object):
 
         history = [d.to_dict() for d in self.time_keeper.get_days(from_day, limit)]
 
-        return {"history": history, "full_length": len(self.time_keeper.data) - 1}
+        return {"history": history, "full_length": self.time_keeper.get_number_of_days() - 1}
 
     @route("days/summary", "GET")
     def _days_summary_get(self, params):
@@ -155,18 +159,24 @@ class TimeIt(object):
         history = [
             {
                 "date": d.date,
-                "worked": seconds_to_duration(int(d.get_time_worked().total_seconds())),
-                "delta": duration_delta(seconds_to_duration(int(d.get_time_worked().total_seconds())), self.config.get_daily_target()),
+                "worked": seconds_to_duration(int(d.get_time_worked(self.config.get_time_sick(), self.config.get_time_vac()).total_seconds())),
+                "delta": duration_delta(
+                    seconds_to_duration(int(d.get_time_worked(self.config.get_time_sick(), self.config.get_time_vac()).total_seconds())), self.config.get_daily_target()
+                ),
                 "attendance": d.get_attendance().value,
             }
             for d in self.time_keeper.get_days(from_day, limit)
+            if d
         ]
-        return {"history": history, "full_length": len(self.time_keeper.data) - 1}
+        return {"history": history, "full_length": self.time_keeper.get_number_of_days() - 1}
 
     @route("days/attendance/avg", "GET")
     def _days_attendance_avg_get(self, params):
         total = self.time_keeper.total_attendance(Attendance(params.get("type")), params.get("date", datetime.date.today().isoformat()))
-        workdays = len(get_workday_dates(self.config.get_workdays(), self.time_keeper.get_first_day().get_date(), params.get("date", datetime.date.today().isoformat())))
+        first_day = self.time_keeper.get_first_day()
+        if not first_day:
+            return {0}
+        workdays = len(get_workday_dates(self.config.get_workdays(), first_day.get_date(), params.get("date", datetime.date.today().isoformat())))
         return {total / workdays if workdays else 0}
 
     @route("days/attendance/target", "GET")
@@ -183,7 +193,7 @@ class TimeIt(object):
         target = self.config.get_daily_target()
 
         try:
-            worked = seconds_to_duration(int(self.time_keeper.get_day(date).get_time_worked().total_seconds()))
+            worked = seconds_to_duration(int(self.time_keeper.get_day(date).get_time_worked(self.config.get_time_sick(), self.config.get_time_vac()).total_seconds()))
         except ValueError as e:
             raise cherrypy.HTTPError(500, str(e)) from e
 
@@ -194,15 +204,15 @@ class TimeIt(object):
             "worked": worked,
             "target": target,
             "delta": delta,
-            "weekly_delta": seconds_to_duration(int(self.time_keeper.get_worked_weekly(date, target).total_seconds())),
-            "total_delta": seconds_to_duration(int(self.time_keeper.get_worked_delta(date, target).total_seconds())),
+            "weekly_delta": seconds_to_duration(int(self.time_keeper.get_worked_weekly(date, target, self.config.get_time_sick(), self.config.get_time_vac()).total_seconds())),
+            "total_delta": seconds_to_duration(int(self.time_keeper.get_worked_delta(date, target, self.config.get_time_sick(), self.config.get_time_vac()).total_seconds())),
             "last_entry": last_entry.to_dict() if last_entry else None,
             "avg_attendance": self.time_keeper.get_weighted_avg_attendance(self.config, date),
         }
 
     @route("report", "GET")
     def _report_get(self, _params):
-        return self.time_keeper.generate_report(isLocal=True)
+        return self.time_keeper.generate_report(is_local=True)
 
     @route("config", "GET")
     def _config_get(self, _params):
@@ -225,7 +235,6 @@ class TimeIt(object):
     def _data_post(self, _params):
         body = self._read_json_body(required=True)
         self.time_keeper.from_dict(body)
-        self.time_keeper.save_data()
         return {"ok": True}
 
     def _read_json_body(self, required=False):

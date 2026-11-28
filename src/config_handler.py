@@ -83,6 +83,16 @@ class ConfigHandler:
             cb(updated_keys=list(new_config.keys()))
         return None
 
+    def get_time_vac(self) -> datetime.timedelta:
+        """Get vacation time."""
+        hours, minutes = self._loaded_config().get("work", {}).get("vacation").split(":")
+        return datetime.timedelta(hours=int(hours), minutes=int(minutes))
+
+    def get_time_sick(self) -> datetime.timedelta:
+        """Get sick time."""
+        hours, minutes = self._loaded_config().get("work", {}).get("sick").split(":")
+        return datetime.timedelta(hours=int(hours), minutes=int(minutes))
+
     def _loaded_config(self) -> dict[str, Any]:
         if self.config is None:
             raise RuntimeError("Configuration has not been loaded.")
