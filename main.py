@@ -240,35 +240,48 @@ class TimeIt(object):
             raise cherrypy.HTTPError(400, f"Invalid JSON body: {exc}")
 
 
-if __name__ == "__main__":
-    config = ConfigHandler(os.path.join(APP_ROOT, "config/userconf.yaml"))
-    config.load()
+class Server:
+    """Server class handling configuration, setup and start."""
 
-    cherrypy.config.update(
-        {
-            "server.socket_host": "0.0.0.0",
-            "server.socket_port": config.get_server_port(),
-            "tools.staticdir.root": APP_ROOT,
+    def __init__(self):
+        self.config = ConfigHandler(os.path.join(APP_ROOT, "config/userconf.yaml"), [self._update_callback])
+        self.config.load()
+
+        cherrypy.config.update(
+            {
+                "server.socket_host": "0.0.0.0",
+                "server.socket_port": self.config.get_server_port(),
+                "tools.staticdir.root": APP_ROOT,
+            }
+        )
+
+        app_config = {
+            "/": {
+                "tools.sessions.on": True,
+                "tools.sessions.timeout": 60,
+                "tools.sessions.secure": False,
+                "tools.sessions.httponly": True,
+                "tools.staticdir.on": True,
+                "tools.staticdir.dir": "static/app",
+                "tools.staticdir.index": "index.html",
+                "tools.staticdir.match": r"^/$",
+            },
+            "/static": {
+                "tools.staticdir.on": True,
+                "tools.staticdir.dir": "static/",
+                "tools.staticdir.match": r"^/static(?:/|$)",
+                "tools.staticdir.index": "index.html",
+            },
         }
-    )
 
-    app_config = {
-        "/": {
-            "tools.sessions.on": True,
-            "tools.sessions.timeout": 60,
-            "tools.sessions.secure": False,
-            "tools.sessions.httponly": True,
-            "tools.staticdir.on": True,
-            "tools.staticdir.dir": "static/app",
-            "tools.staticdir.index": "index.html",
-            "tools.staticdir.match": r"^/$",
-        },
-        "/static": {
-            "tools.staticdir.on": True,
-            "tools.staticdir.dir": "static/",
-            "tools.staticdir.match": r"^/static(?:/|$)",
-            "tools.staticdir.index": "index.html",
-        },
-    }
+        cherrypy.quickstart(TimeIt(self.config), "", app_config)
 
-    cherrypy.quickstart(TimeIt(config), "", app_config)
+    def _update_callback(self, updated_keys):
+        if "server" in updated_keys:
+            print("Server config updated")
+            cherrypy.config.update({"server.socket_port": self.config.get_server_port()})
+        cherrypy.engine.restart()
+
+
+if __name__ == "__main__":
+    Server()

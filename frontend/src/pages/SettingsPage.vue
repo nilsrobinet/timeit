@@ -130,6 +130,11 @@ update()
                     </label>
                 </div>
             </div>
+            <div class="settings-field">
+                <label for="port">Port</label>
+                <input id="port" class="form-control" type="number" v-model="config.server.port" min="0" max="65535"
+                    step="1" :disabled="!userwritable" />
+            </div>
             <button class="button" type="submit" @click="postConfig" :disabled="!userwritable">Save</button>
         </form>
         <button class="button button-quiet" @click="exportData">Export Data</button>

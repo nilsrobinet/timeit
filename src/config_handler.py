@@ -3,7 +3,7 @@
 import os
 import re
 import datetime
-from typing import Any
+from typing import Any, Callable
 
 import yaml
 
@@ -12,9 +12,10 @@ import yaml
 class ConfigHandler:
     """Handles config. loads and provides access."""
 
-    def __init__(self, config_path: str) -> None:
+    def __init__(self, config_path: str, config_update_callbacks: list[Callable]) -> None:
         self.config_path = config_path
         self.config: dict[str, Any] | None = None
+        self.config_update_callbacks = config_update_callbacks
 
     def get_daily_target(self) -> str:
         """Get daily target as string.
@@ -78,6 +79,8 @@ class ConfigHandler:
                 return ValueError(f"Invalid key: {k}")
             self.config[k] = v
         self._persist()
+        for cb in self.config_update_callbacks:
+            cb(updated_keys=list(new_config.keys()))
         return None
 
     def _loaded_config(self) -> dict[str, Any]:
