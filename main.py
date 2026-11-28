@@ -207,7 +207,9 @@ class TimeIt(object):
             "weekly_delta": seconds_to_duration(int(self.time_keeper.get_worked_weekly(date, target, self.config.get_time_sick(), self.config.get_time_vac()).total_seconds())),
             "total_delta": seconds_to_duration(int(self.time_keeper.get_worked_delta(date, target, self.config.get_time_sick(), self.config.get_time_vac()).total_seconds())),
             "last_entry": last_entry.to_dict() if last_entry else None,
-            "avg_attendance": self.time_keeper.get_weighted_avg_attendance(self.config, date),
+            "avg_attendance": self.time_keeper.get_avg_attendance_days(
+                self.config.get_workdays(), self.config.get_sick_attendance_comp(), self.config.get_vac_attendance_comp(), date
+            ),
         }
 
     @route("report", "GET")

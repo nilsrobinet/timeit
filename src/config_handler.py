@@ -93,6 +93,14 @@ class ConfigHandler:
         hours, minutes = self._loaded_config().get("work", {}).get("sick").split(":")
         return datetime.timedelta(hours=int(hours), minutes=int(minutes))
 
+    def get_sick_attendance_comp(self) -> float:
+        """Get sick attendance comp. A sick day counts partially."""
+        return self._loaded_config().get("attendance", {}).get("sick_day_compenstation")
+
+    def get_vac_attendance_comp(self) -> float:
+        """Get vac attendance comp. A vac day counts partially."""
+        return self._loaded_config().get("attendance", {}).get("vacation_day_compenstation")
+
     def _loaded_config(self) -> dict[str, Any]:
         if self.config is None:
             raise RuntimeError("Configuration has not been loaded.")

@@ -96,16 +96,22 @@ class TimeKeeper:
             dates = [d for d in dates if d < datetime.date.fromisoformat(from_day)]
         return [self.storage.get(d.isoformat()) for d in dates[:limit]]
 
-    def get_weighted_avg_attendance(self, config, date: str) -> float:
+    def get_avg_attendance(self, workdays: list[str], sick_comp: float, vac_comp: float, date: str) -> float:
         """Get weighted avg attendance with vacation and sick days counting for half"""
-        total = self.total_attendance(Attendance.UNDEFINED, date)
+        worked = self.total_attendance(Attendance.IN_OFFICE, date)
         vacation = self.total_attendance(Attendance.VACATION, date)
         sick = self.total_attendance(Attendance.SICK, date)
         first_day = self.get_first_day()
         if not first_day:
             return 0
-        workdays = len(get_workday_dates(config.get_workdays(), first_day.get_date(), date))
-        return (total + (vacation / 2) + (sick / 2)) / workdays if workdays else 0
+        num_workdays = len(get_workday_dates(workdays, first_day.get_date(), date))
+        total = worked + (vacation * vac_comp) + (sick * sick_comp)
+        print(total, num_workdays, date)
+        return (total) / num_workdays if num_workdays else 0
+
+    def get_avg_attendance_days(self, workdays: list[str], sick_comp: float, vac_comp: float, date: str) -> float:
+        """Get avg attendance in terms of days per week"""
+        return self.get_avg_attendance(workdays, sick_comp, vac_comp, date) * len(workdays)
 
     def get_worked_weekly(self, date: str, target: str, sick_time: datetime.timedelta, vac_time: datetime.timedelta) -> datetime.timedelta:
         """Get worked time for the week"""

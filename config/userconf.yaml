@@ -1,16 +1,20 @@
 attendance:
   target: 2.5
   workdays:
-  - MON
-  - TUE
-  - WED
-  - THU
-  - FRI
+    - MON
+    - TUE
+    - WED
+    - THU
+    - FRI
+  sick_day_compenstation: 0.5 # fraction of day counted for sick
+  vacation_day_compenstation: 0.5 # fraction of day counted for vac
 data:
   persistence: json
-  timekeeping_path: data.json
+  timekeeping_path: raspi_data.json
 server:
   port: 8080
 userwritable: true
 work:
-  target: 08:00
+  target: "08:00"
+  vacation: "08:00" # time worked to assume for vacation
+  sick: "08:00" # time worked to assume for sick days
