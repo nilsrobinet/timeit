@@ -64,6 +64,10 @@ class ConfigHandler:
         """Get workdays as list of strings."""
         return self._loaded_config().get("attendance", {}).get("workdays", [])
 
+    def get_server_port(self) -> int:
+        """Get server port."""
+        return self._loaded_config().get("server", {}).get("port")
+
     def set_config(self, new_config: dict) -> ValueError | None:
         """Set values from new config. Returns ValueError if invalid."""
         if self.config is None:

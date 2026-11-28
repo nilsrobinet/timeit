@@ -27,8 +27,8 @@ def route(path: str, method: str):
 class TimeIt(object):
     """TimeIt cherrypy web app."""
 
-    def __init__(self):
-        self.config = ConfigHandler(os.path.join(APP_ROOT, "config/userconf.yaml"))
+    def __init__(self, config_handler):
+        self.config = config_handler
         self.config.load()
         self.time_keeper = TimeKeeper(os.path.join(APP_ROOT, self.config.get_timekeeping_path()))
         self.time_keeper.load_data()
@@ -241,10 +241,13 @@ class TimeIt(object):
 
 
 if __name__ == "__main__":
+    config = ConfigHandler(os.path.join(APP_ROOT, "config/userconf.yaml"))
+    config.load()
+
     cherrypy.config.update(
         {
             "server.socket_host": "0.0.0.0",
-            "server.socket_port": 8080,
+            "server.socket_port": config.get_server_port(),
             "tools.staticdir.root": APP_ROOT,
         }
     )
@@ -268,4 +271,4 @@ if __name__ == "__main__":
         },
     }
 
-    cherrypy.quickstart(TimeIt(), "", app_config)
+    cherrypy.quickstart(TimeIt(config), "", app_config)

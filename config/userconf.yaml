@@ -8,7 +8,9 @@ attendance:
     - FRI
 data:
   persistence: json
-  timekeeping_path: data.json
+  timekeeping_path: /var/lib/timeit/data.json
 userwritable: true
 work:
   target: 08:00
+server:
+  port: 8080
